@@ -1,4 +1,4 @@
-# AGENTS.md
+# CLAUDE.md
 
 Home Assistant custom integration: **Ghost Mode** — presence simulation that
 learns the home's real occupied rhythm from recorder history and replays it
