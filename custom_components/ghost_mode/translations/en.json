@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Ghost Mode",
+        "description": "Ghost Mode learns how your home looks while it is occupied and replays that pattern while you are away, so an empty house still looks lived-in. Submit to add it — you can pick which lights, covers and media players it uses afterwards."
+      }
+    },
+    "abort": {
+      "already_configured": "Ghost Mode is already set up."
+    }
+  },
+  "entity": {
+    "switch": {
+      "ghost_mode": {
+        "name": "Ghost Mode"
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "domain": "ghost_mode",
+  "name": "Ghost Mode",
+  "codeowners": ["@MarcelHoell"],
+  "config_flow": true,
+  "documentation": "https://github.com/MarcelHoell/ha-ghost-mode",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/MarcelHoell/ha-ghost-mode/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
