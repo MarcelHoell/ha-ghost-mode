@@ -64,6 +64,9 @@ custom_components/ghost_mode/
 ```
 
 No dependencies, no build step. CI runs `hassfest` + HACS validation.
+Releases are automated by [release-please](https://github.com/googleapis/release-please)
+from Conventional Commits — merge the release PR and the version in
+`manifest.json` is bumped and tagged automatically.
 
 ## Disclaimer
 

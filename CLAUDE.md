@@ -33,7 +33,10 @@ The engine is deliberately absent in 0.1.0. Next steps, in order:
 - Commit messages: Conventional Commits, English only. **No reference to Claude
   anywhere** — no `Co-Authored-By` trailer, no "generated with" line, no mention
   in the subject or body.
-- Version bumps in `manifest.json`, then a matching `vX.Y.Z` GitHub release.
+- Versioning is automated: **release-please** reads the Conventional Commits,
+  opens a release PR that bumps `manifest.json` (`$.version`) and updates the
+  changelog, and tags `vX.Y.Z` when that PR is merged. Never bump the version by
+  hand. `feat:` → minor, `fix:` → patch, `feat!:`/`BREAKING CHANGE` → major.
 - No new runtime dependency unless unavoidable — keep `requirements` empty.
 - Entities use `_attr_has_entity_name` + translation keys; user strings live in
   `strings.json` / `translations/`.
