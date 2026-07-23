@@ -20,3 +20,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # brands requires registration in home-assistant/brands, out of scope
+          # for an alpha custom repo. Revisit before submitting to the HACS store.
+          ignore: brands
