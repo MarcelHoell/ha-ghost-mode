@@ -4,8 +4,8 @@ Home Assistant custom integration: **Ghost Mode** — presence simulation that
 learns the home's real occupied rhythm from recorder history and replays it
 with natural variation while away. Alpha. HACS-installable. Domain `ghost_mode`.
 
-Author's other HA project is `home-assistant-navimow` (a fork); same
-conventions apply.
+Repo: `github.com/MarcelHoell/ha-ghost-mode` (`origin`, branch `main`). Author's
+other HA project is `home-assistant-navimow` (a fork); same conventions apply.
 
 ## Layout
 
