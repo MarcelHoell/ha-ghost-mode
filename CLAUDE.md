@@ -30,7 +30,9 @@ The engine is deliberately absent in 0.1.0. Next steps, in order:
 
 ## Conventions
 
-- Commit messages: Conventional Commits, English. No `Co-Authored-By` trailer.
+- Commit messages: Conventional Commits, English only. **No reference to Claude
+  anywhere** — no `Co-Authored-By` trailer, no "generated with" line, no mention
+  in the subject or body.
 - Version bumps in `manifest.json`, then a matching `vX.Y.Z` GitHub release.
 - No new runtime dependency unless unavoidable — keep `requirements` empty.
 - Entities use `_attr_has_entity_name` + translation keys; user strings live in
