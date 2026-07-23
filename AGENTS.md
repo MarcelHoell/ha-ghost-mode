@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Home Assistant custom integration: **Ghost Mode** — presence simulation that
 learns the home's real occupied rhythm from recorder history and replays it
@@ -30,9 +30,9 @@ The engine is deliberately absent in 0.1.0. Next steps, in order:
 
 ## Conventions
 
-- Commit messages: Conventional Commits, English only. **No reference to Claude
-  anywhere** — no `Co-Authored-By` trailer, no "generated with" line, no mention
-  in the subject or body.
+- Commit messages: Conventional Commits, English only. **No AI/assistant
+  attribution anywhere** — no `Co-Authored-By` trailer, no "generated with"
+  line, no such mention in the subject or body.
 - Versioning is automated: **release-please** reads the Conventional Commits,
   opens a release PR that bumps `manifest.json` (`$.version`) and updates the
   changelog, and tags `vX.Y.Z` when that PR is merged. Never bump the version by
