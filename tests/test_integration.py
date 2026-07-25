@@ -229,22 +229,29 @@ async def test_a_newly_included_entity_is_backfilled_not_left_behind(
         dt_util.start_of_local_day() - dt.timedelta(days=1)
     ).date().isoformat()
 
-    folded_days: list[dt.datetime] = []
-    original = learner_module.day_grid
+    # The test recorder is empty, so nothing is ever folded. What the fix
+    # changes is the window that gets *asked for* — capture that instead.
+    queries: list[tuple] = []
+    original = learner_module.history.get_significant_states
 
-    def _record(changes, day_start):
-        folded_days.append(day_start)
-        return original(changes, day_start)
+    def _capture(hass, start, end, entity_ids, **kwargs):
+        queries.append((start, end))
+        return {}
 
-    learner_module.day_grid = _record
+    learner_module.history.get_significant_states = _capture
     try:
         await learner.async_update()
-    finally:
-        learner_module.day_grid = original
+        assert queries, "a newcomer must reopen the window, not return early"
+        start, end = queries[0]
+        assert (end - start).days >= 7, "the newcomer needs the whole window"
 
-    assert folded_days, "a newcomer must reopen the window, not return early"
-    span = (max(folded_days) - min(folded_days)).days
-    assert span >= 6, f"expected the whole window backfilled, got {span + 1} day(s)"
+        # With nothing new, the same call must go back to doing nothing.
+        queries.clear()
+        learner.profile["light.garden"] = [[0.0] * 48] + [None] * 6
+        await learner.async_update()
+        assert not queries, "an ordinary run with nothing new must still return early"
+    finally:
+        learner_module.history.get_significant_states = original
 
 
 async def test_backfill_respects_the_recorder_setting(
