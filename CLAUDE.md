@@ -28,7 +28,8 @@ asserts no `hass` exists yet, so an autouse fixture requests it first.
 | `manifest.json` | domain, version, `iot_class: calculated`, `dependencies: [recorder]`, no requirements |
 | `__init__.py` | entry setup/unload, `learn_now` + `forget` services, `async_remove_entry` deletes the store, forwards to platforms |
 | `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for alarm, drive-domains and exclusions |
-| `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity`. Publishes `SIGNAL_ENABLED` so replay reacts at once |
+| `switch.py` | `switch.ghost_mode` (allow) and `switch.ghost_mode_force` (override the alarm), both `RestoreEntity`. Publish `SIGNAL_ENABLED` so replay reacts at once |
+| `binary_sensor.py` | `binary_sensor.ghost_mode_replaying` — the honest answer to "is it performing", plus `waiting_for` and `restores_on_return` |
 | `sensor.py` | `sensor.ghost_mode_learned_rhythm` — sparklines in an attribute so a plain markdown card can draw them. `_unrecorded_attributes` keeps it out of the recorder |
 | `discovery.py` | entity-registry scan for switchable, user-facing entities |
 | `rhythm.py` | the pure logic — sampling, EMA blend, sparklines, group collapsing, and the replay decision (`desired_on`, `stable_random`). **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare. Logic lands here purely to stay testable |
@@ -86,9 +87,17 @@ change together with a note to call `ghost_mode.forget`.
 
 ## How replay works
 
-Active only when `hass.data[DOMAIN]["enabled"]` (written by the switch) **and**
-the configured alarm is in `AWAY_STATES`. No alarm configured → the switch
-alone decides; that is a deliberate fallback, not an oversight.
+Active when `hass.data[DOMAIN]["enabled"]` (written by the master switch)
+**and** the configured alarm is in `AWAY_STATES`. No alarm configured → the
+switch alone decides; that is a deliberate fallback, not an oversight.
+
+`hass.data[DOMAIN]["forced"]` short-circuits all of it, master switch included.
+The force switch is the manual override, so it wins on purpose — the alarm is
+the right signal almost always and exactly wrong when you want to *see* what
+replay does.
+
+`blocked_by()` is the single source of truth: `is_away()` is just
+`blocked_by() is None`, and the binary sensor surfaces the string verbatim.
 
 Woken by three things: a five-minute `TICK`, the `SIGNAL_ENABLED` dispatcher
 from the switch, and a state listener on the alarm. The last two exist because
@@ -108,6 +117,10 @@ Three rules that are easy to break by accident:
 - **`cover` has no `turn_on`/`turn_off` service** — it registers
   `open_cover`/`close_cover` only, so `homeassistant.turn_on` skips covers in
   silence. Hence `_SERVICES` in `replay.py`.
+- **A failing service call must not end the pass.** One unavailable bulb used
+  to abort the whole evaluation part-way through. Entities are only recorded as
+  driven once the call actually went out, or stand-down would "restore"
+  something never changed.
 - **State listeners must not be plain lambdas.** An undecorated callable is run
   in an executor thread, and scheduling loop work from there now raises. Pass
   the coroutine (or a `@callback`) directly.

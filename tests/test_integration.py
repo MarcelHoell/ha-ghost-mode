@@ -367,6 +367,12 @@ async def test_replaying_sensor_reports_rather_than_guesses(
     replay = await _arm(hass, entry, "disarmed")
     hass.data[DOMAIN]["enabled"] = False
 
+    async def _noop(call):
+        return None
+
+    for service in ("turn_on", "turn_off"):
+        hass.services.async_register("homeassistant", service, _noop)
+
     sensor = "binary_sensor.ghost_mode_replaying"
     assert hass.states.get(sensor).state == "off"
     assert "switch is off" in hass.states.get(sensor).attributes["waiting_for"]
@@ -390,6 +396,50 @@ async def test_replaying_sensor_reports_rather_than_guesses(
     assert state.state == "off"
     assert state.attributes["entities_held"] == 0
     assert "disarmed" in state.attributes["waiting_for"]
+
+
+async def test_force_switch_overrides_the_alarm(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """The alarm is the right signal almost always, and sometimes exactly wrong."""
+    replay = await _arm(hass, entry, "disarmed")
+    hass.data[DOMAIN]["enabled"] = False
+    assert replay.is_away() is False
+
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": "switch.ghost_mode_force"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    assert replay.is_away() is True, "forcing must win over a disarmed alarm"
+    assert replay.blocked_by() is None
+    assert hass.states.get("binary_sensor.ghost_mode_replaying").state == "on"
+
+    await hass.services.async_call(
+        "switch", "turn_off", {"entity_id": "switch.ghost_mode_force"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert replay.is_away() is False, "and stop the moment it is switched back"
+
+
+async def test_one_broken_entity_does_not_end_the_performance(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """A missing service used to abort the whole pass part-way through."""
+    replay = await _arm(hass, entry, "armed_away")
+    hass.data[DOMAIN]["enabled"] = True
+
+    # No homeassistant.turn_on registered at all: every call will raise.
+    hass.states.async_set("light.one", "off")
+    hass.states.async_set("light.two", "off")
+    replay.learner.profile["light.one"] = [[1.0] * 48] * 7
+    replay.learner.profile["light.two"] = [[1.0] * 48] * 7
+
+    await replay.async_evaluate()
+    await hass.async_block_till_done()
+
+    assert replay.is_running, "the pass must survive a failing service call"
+    assert replay.held == [], "and claim nothing it could not actually switch"
 
 
 async def test_replayed_days_are_never_learned_from(

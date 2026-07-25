@@ -31,10 +31,14 @@ it replays that with natural variation while you are away.
 3. **Replay** — a realistic evening, at slightly different times each day.
 4. **Yield** — stop the moment someone comes home, and tidy up after itself.
 
-It adds three entities: **`switch.ghost_mode`** to allow or forbid replay,
-**`binary_sensor.ghost_mode_replaying`** to tell you whether it is performing
-right now, and **`sensor.ghost_mode_learned_rhythm`** carrying what it has
-learned.
+It adds four entities:
+
+| Entity | What it is for |
+| --- | --- |
+| `switch.ghost_mode` | Allow replay. On its own it does nothing until the alarm agrees. |
+| `switch.ghost_mode_force` | **Replay now**, whatever the alarm says. |
+| `binary_sensor.ghost_mode_replaying` | Whether it is performing right now, and why not if it isn't. |
+| `sensor.ghost_mode_learned_rhythm` | What it has learned. |
 
 ## Requirements
 
@@ -52,6 +56,9 @@ Until it is in HACS, add it as a custom repository:
 
 There is nothing to fill in. It finds your lights, switches, covers and media
 players by itself and starts learning tonight.
+
+Give it a day or two to learn something, then flip **`switch.ghost_mode_force`**
+to watch it perform on demand — no alarm, no waiting for you to leave.
 
 ## Configuration
 
@@ -98,8 +105,13 @@ Ghost Mode can't tell them from a real lamp.
 
 ## Replay
 
-Replay runs only while **both** are true: the switch is on, and the alarm says
-away. Learning happens either way, regardless of the switch.
+Replay runs while **both** are true: `switch.ghost_mode` is on, and the alarm
+says away. Learning happens either way, regardless of either switch.
+
+**Or force it.** `switch.ghost_mode_force` overrides everything — alarm, master
+switch, the lot — and replays until you switch it back off. Use it to watch
+what replay actually does before trusting it, or when you are away without
+having armed anything. It is the manual override, so it wins on purpose.
 
 It is **not a schedule.** A light that was on for 60% of your observed Tuesday
 evenings comes on about 60% of Tuesdays — not every Tuesday at the same minute.
@@ -125,6 +137,8 @@ title: Ghost Mode
 entities:
   - entity: switch.ghost_mode
     name: Enabled
+  - entity: switch.ghost_mode_force
+    name: Force replay now
   - entity: binary_sensor.ghost_mode_replaying
     name: Performing right now
   - type: attribute
@@ -245,7 +259,12 @@ re-adding really does start over.
 
 **Replay isn't doing anything.** Look at `binary_sensor.ghost_mode_replaying`.
 Its **`waiting_for`** attribute says why in plain words — the switch is off,
-the alarm is disarmed, or the alarm entity is unavailable.
+the alarm is disarmed, or the alarm entity is unavailable. To rule the alarm
+out entirely, switch on `switch.ghost_mode_force`.
+
+**It's performing, but nothing visible happens.** Check the card: if today's
+row is mostly `·`, there is genuinely nothing to reproduce at this hour. Replay
+does not invent activity that was never there.
 
 **Nothing appears on the card.** The profile only fills in after the learner has
 run once. Call `ghost_mode.learn_now`, then check **Settings → System → Logs**

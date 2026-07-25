@@ -22,20 +22,22 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the Ghost Mode switch."""
-    async_add_entities([GhostModeSwitch(entry)])
+    """Set up the Ghost Mode switches."""
+    async_add_entities([GhostModeSwitch(entry), GhostModeForceSwitch(entry)])
 
 
-class GhostModeSwitch(SwitchEntity, RestoreEntity):
-    """The master on/off for Ghost Mode."""
+class _GhostModeSwitchBase(SwitchEntity, RestoreEntity):
+    """Shared plumbing: remember the state, and tell replay at once."""
 
     _attr_has_entity_name = True
-    _attr_name = None  # the entity carries the device name
-    _attr_icon = "mdi:ghost"
+    _attr_should_poll = False
 
-    def __init__(self, entry: ConfigEntry) -> None:
+    #: Key in `hass.data[DOMAIN]` this switch publishes to.
+    _key: str
+
+    def __init__(self, entry: ConfigEntry, unique_suffix: str) -> None:
         """Initialize the switch."""
-        self._attr_unique_id = f"{entry.entry_id}_enabled"
+        self._attr_unique_id = f"{entry.entry_id}_{unique_suffix}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name="Ghost Mode",
@@ -57,17 +59,45 @@ class GhostModeSwitch(SwitchEntity, RestoreEntity):
 
     def _publish(self) -> None:
         """Tell replay at once, rather than let it find out on its next tick."""
-        self.hass.data[DOMAIN]["enabled"] = self._is_on
+        self.hass.data[DOMAIN][self._key] = self._is_on
         async_dispatcher_send(self.hass, SIGNAL_ENABLED)
 
     async def async_turn_on(self, **kwargs) -> None:
-        """Enable Ghost Mode."""
+        """Switch on."""
         self._is_on = True
         self.async_write_ha_state()
         self._publish()
 
     async def async_turn_off(self, **kwargs) -> None:
-        """Disable Ghost Mode."""
+        """Switch off."""
         self._is_on = False
         self.async_write_ha_state()
         self._publish()
+
+
+class GhostModeSwitch(_GhostModeSwitchBase):
+    """The master on/off: replay may act, if the alarm also agrees."""
+
+    _attr_name = None  # the entity carries the device name
+    _attr_icon = "mdi:ghost"
+    _key = "enabled"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        """Initialize the master switch."""
+        super().__init__(entry, "enabled")
+
+
+class GhostModeForceSwitch(_GhostModeSwitchBase):
+    """Replay now, whatever the alarm says.
+
+    The alarm is the right signal almost always, and exactly wrong when you
+    want to see what replay does, or when you are away without arming it.
+    """
+
+    _attr_translation_key = "force"
+    _attr_icon = "mdi:play-circle"
+    _key = "forced"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        """Initialize the force switch."""
+        super().__init__(entry, "forced")

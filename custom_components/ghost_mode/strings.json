@@ -33,6 +33,9 @@
     "switch": {
       "ghost_mode": {
         "name": "Ghost Mode"
+      },
+      "force": {
+        "name": "Force replay"
       }
     },
     "sensor": {

@@ -83,6 +83,11 @@ class Replay:
     @callback
     def blocked_by(self) -> str | None:
         """Return why replay is not running, or None if nothing is stopping it."""
+        if self.hass.data[DOMAIN].get("forced"):
+            # The force switch overrides everything, including the master
+            # switch: it exists precisely for when the alarm is the wrong
+            # signal — testing what replay does, or being away without arming.
+            return None
         if not self.hass.data[DOMAIN].get("enabled"):
             return "the Ghost Mode switch is off"
         if not (alarm := self.entry.options.get(CONF_ALARM)):
@@ -156,14 +161,20 @@ class Replay:
         """Switch one entity, remembering what it was first."""
         domain = entity_id.split(".", 1)[0]
         service_domain, on_service, off_service = _SERVICES.get(domain, _GENERIC)
-        self._driven.setdefault(entity_id, (before, on))
         self._acted[entity_id] = dt_util.now()
-        await self.hass.services.async_call(
-            service_domain,
-            on_service if on else off_service,
-            {"entity_id": entity_id},
-            blocking=False,
-        )
+        try:
+            await self.hass.services.async_call(
+                service_domain,
+                on_service if on else off_service,
+                {"entity_id": entity_id},
+                blocking=False,
+            )
+        except Exception:  # noqa: BLE001 - one bad bulb must not end the show
+            _LOGGER.warning("Could not switch %s; carrying on", entity_id)
+            return
+        # Only claim it once the call actually went out, or standing down
+        # would try to "restore" something we never changed.
+        self._driven.setdefault(entity_id, (before, on))
 
     async def async_stand_down(self) -> None:
         """Undo our own changes and stop. Anything else stays as it is."""
