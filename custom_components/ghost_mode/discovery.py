@@ -7,6 +7,7 @@ members, and the options flow can exclude whatever is left over.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 
 from homeassistant.core import HomeAssistant, callback
@@ -25,6 +26,20 @@ GHOSTABLE_DOMAINS = {
     "cover",
     "input_boolean",
 }
+
+
+# Deliberately forgiving: anything shaped like an entity id counts, so a list
+# pasted with commas, bullets, quotes or line breaks all work the same.
+_ENTITY_ID = re.compile(r"[a-z_]+\.[a-z0-9_]+")
+
+
+def parse_entity_ids(text: str) -> set[str]:
+    """Pull entity ids out of whatever the user pasted.
+
+    The picker takes one click per entity, which is unusable for the case that
+    actually matters — dropping the eight entities a single television owns.
+    """
+    return set(_ENTITY_ID.findall(text.lower()))
 
 
 @callback

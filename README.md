@@ -107,6 +107,20 @@ run. Entities that leave the registry are dropped from the profile.
 **Settings → Devices & Services → Ghost Mode → Configure** takes a list of
 entities to ignore outright.
 
+Two ways in. The picker is fine for one or two. For a real list — one
+television is easily eight entities — use the **paste box** underneath and drop
+in entity IDs, one per line or comma separated:
+
+```text
+light.buro_links, light.buro_rechts
+media_player.55oled706_12
+switch.robby_uv_sterilization
+```
+
+Anything shaped like an entity ID is picked up, so pasting a bulleted or
+quoted list works too. The box is a bulk-add: its contents merge into the list
+above and are not kept, so reopening the form shows one list rather than two.
+
 It exists because the entity-category filter only works when an integration
 bothers to set it. Some do not: a robot vacuum's "UV sterilisation" and
 "auto drying" switches are permanently on, invisible from outside, and get

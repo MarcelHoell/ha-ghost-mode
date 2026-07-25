@@ -5,8 +5,8 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
 from homeassistant.helpers import selector
 
-from .const import CONF_EXCLUDE, DOMAIN
-from .discovery import GHOSTABLE_DOMAINS
+from .const import CONF_EXCLUDE, CONF_PASTE, DOMAIN
+from .discovery import GHOSTABLE_DOMAINS, parse_entity_ids
 
 
 class GhostModeConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -44,7 +44,12 @@ class GhostModeOptionsFlow(OptionsFlowWithReload):
     async def async_step_init(self, user_input=None):
         """Let the user exclude entities from learning and replay."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            # The paste box is a bulk-add, not a second list: whatever it
+            # contains is merged into the picker and then forgotten, so
+            # reopening the form shows one list rather than two.
+            excluded = set(user_input.get(CONF_EXCLUDE, []))
+            excluded |= parse_entity_ids(user_input.get(CONF_PASTE, ""))
+            return self.async_create_entry(data={CONF_EXCLUDE: sorted(excluded)})
 
         current = self.config_entry.options.get(CONF_EXCLUDE, [])
         return self.async_show_form(
@@ -55,7 +60,10 @@ class GhostModeOptionsFlow(OptionsFlowWithReload):
                         selector.EntitySelectorConfig(
                             domain=sorted(GHOSTABLE_DOMAINS), multiple=True
                         )
-                    )
+                    ),
+                    vol.Optional(CONF_PASTE, default=""): selector.TextSelector(
+                        selector.TextSelectorConfig(multiline=True)
+                    ),
                 }
             ),
         )

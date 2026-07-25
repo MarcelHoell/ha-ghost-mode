@@ -14,9 +14,13 @@
     "step": {
       "init": {
         "title": "Ghost Mode options",
-        "description": "Ghost Mode finds its own entities. Use this only to drop ones it should ignore — typically device settings that are permanently on and that nobody outside can see.",
+        "description": "Ghost Mode finds its own entities. Use this only to drop ones it should ignore — duplicates of the same hardware, or device settings that are permanently on and that nobody outside can see.",
         "data": {
-          "exclude": "Never learn or replay these"
+          "exclude": "Never learn or replay these",
+          "paste": "Paste entity IDs to add"
+        },
+        "data_description": {
+          "paste": "One per line or comma separated. They are added to the list above, so you do not have to click each one."
         }
       }
     }

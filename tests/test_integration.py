@@ -11,8 +11,13 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ghost_mode.const import DOMAIN, SIGNAL_PROFILE_UPDATED
-from custom_components.ghost_mode.discovery import ghostable_entities
+from custom_components.ghost_mode.const import (
+    CONF_EXCLUDE,
+    CONF_PASTE,
+    DOMAIN,
+    SIGNAL_PROFILE_UPDATED,
+)
+from custom_components.ghost_mode.discovery import ghostable_entities, parse_entity_ids
 
 
 @pytest.fixture
@@ -68,6 +73,50 @@ async def test_discovery_drops_group_members(hass: HomeAssistant):
     )
 
     assert ghostable_entities(hass) == ["light.office"]
+
+
+def test_pasted_entity_ids_survive_whatever_shape_they_arrive_in():
+    """People paste from chat, from YAML, from a bulleted list. Take it all."""
+    pasted = """
+    light.buro_links, light.buro_rechts
+      - switch.robby_uv_sterilization
+    "media_player.55oled706_12_2"
+    LIGHT.GARTEN
+    not an entity id at all
+    """
+    assert parse_entity_ids(pasted) == {
+        "light.buro_links",
+        "light.buro_rechts",
+        "switch.robby_uv_sterilization",
+        "media_player.55oled706_12_2",
+        "light.garten",
+    }
+    assert parse_entity_ids("") == set()
+
+
+async def test_options_flow_merges_the_paste_box_into_the_picker(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """The paste box is a bulk-add; it must not become a second stored list."""
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            CONF_EXCLUDE: ["light.already_picked"],
+            CONF_PASTE: "light.pasted_one\nlight.pasted_two, light.pasted_three",
+        },
+    )
+    await hass.async_block_till_done()
+
+    assert result["data"] == {
+        CONF_EXCLUDE: [
+            "light.already_picked",
+            "light.pasted_one",
+            "light.pasted_three",
+            "light.pasted_two",
+        ]
+    }
+    assert CONF_PASTE not in result["data"], "the blob itself is never stored"
 
 
 async def test_setup_creates_the_entities_and_services(
