@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.8.0...v0.8.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* backfill entities that had no profile yet ([0a162fb](https://github.com/MarcelHoell/ha-ghost-mode/commit/0a162fb3ff5554fd3efbbd2a67383e396d52f2f3))
+
 ## [0.8.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.7.0...v0.8.0) (2026-07-25)
 
 
