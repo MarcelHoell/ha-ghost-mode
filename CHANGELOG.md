@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.5.1...v0.6.0) (2026-07-25)
+
+
+### Features
+
+* measure how long things were on, not what they were at the boundary ([a907e82](https://github.com/MarcelHoell/ha-ghost-mode/commit/a907e82c233d725ae846d0e9bcd1fecf00ded937))
+
 ## [0.5.1](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.5.0...v0.5.1) (2026-07-25)
 
 
