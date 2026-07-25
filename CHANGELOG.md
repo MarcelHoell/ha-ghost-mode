@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.4.0...v0.5.0) (2026-07-25)
+
+
+### Features
+
+* expose the learned rhythm to a dashboard ([7d05389](https://github.com/MarcelHoell/ha-ghost-mode/commit/7d05389f9b89f5bda09563318afd023ac96e535e))
+
 ## [0.4.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.3.0...v0.4.0) (2026-07-25)
 
 
