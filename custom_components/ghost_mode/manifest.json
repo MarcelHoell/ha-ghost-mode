@@ -3,6 +3,7 @@
   "name": "Ghost Mode",
   "codeowners": ["@MarcelHoell"],
   "config_flow": true,
+  "dependencies": ["recorder"],
   "documentation": "https://github.com/MarcelHoell/ha-ghost-mode",
   "integration_type": "service",
   "iot_class": "calculated",

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Set up Ghost Mode",
-        "description": "Ghost Mode learns how your home looks while it is occupied and replays that pattern while you are away, so an empty house still looks lived-in. Submit to add it — you can pick which lights, covers and media players it uses afterwards."
+        "description": "Ghost Mode learns how your home looks while it is occupied and replays that pattern while you are away, so an empty house still looks lived-in. Submit to add it — it finds your lights, switches, covers and media players on its own."
       }
     },
     "abort": {
@@ -15,6 +15,12 @@
       "ghost_mode": {
         "name": "Ghost Mode"
       }
+    }
+  },
+  "services": {
+    "learn_now": {
+      "name": "Learn now",
+      "description": "Read recorder history into the learned profile straight away, instead of waiting for the nightly run."
     }
   }
 }
