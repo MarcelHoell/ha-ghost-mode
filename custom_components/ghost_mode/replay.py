@@ -76,8 +76,12 @@ class Replay:
         state = self.hass.states.get(alarm)
         return state is not None and state.state in AWAY_STATES
 
-    async def async_evaluate(self, _now: dt.datetime | None = None) -> None:
-        """Bring the house into line with the profile, or stand down."""
+    async def async_evaluate(self, _trigger: object = None) -> None:
+        """Bring the house into line with the profile, or stand down.
+
+        Called from the timer, the switch dispatcher and the alarm listener,
+        each of which hands over something different. None of it is used.
+        """
         if not self.is_away():
             await self.async_stand_down()
             return
@@ -155,12 +159,11 @@ async def async_setup_replay(
         async_dispatcher_connect(hass, SIGNAL_ENABLED, replay.async_evaluate),
     ]
     if alarm := entry.options.get(CONF_ALARM):
+        # Hand over the coroutine itself. A plain lambda here would be treated
+        # as a sync callback and run in an executor thread, and scheduling loop
+        # work from there is exactly what Home Assistant now refuses to allow.
         unsubs.append(
-            async_track_state_change_event(
-                hass, [alarm], lambda _event: hass.async_create_task(
-                    replay.async_evaluate()
-                )
-            )
+            async_track_state_change_event(hass, [alarm], replay.async_evaluate)
         )
     hass.data[DOMAIN]["unsub_replay"] = unsubs
     return replay
