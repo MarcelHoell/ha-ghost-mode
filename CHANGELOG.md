@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.10.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.9.0...v0.10.0) (2026-07-25)
+
+
+### Features
+
+* add a force switch that overrides the alarm ([cc04271](https://github.com/MarcelHoell/ha-ghost-mode/commit/cc04271fad8456a279706560c980148602c4006f))
+* report whether replay is actually performing ([710212f](https://github.com/MarcelHoell/ha-ghost-mode/commit/710212fdd7d93da2bc69f7906e34691e51797f7f))
+
+
+### Bug Fixes
+
+* use the entity id Home Assistant actually generates ([36c7914](https://github.com/MarcelHoell/ha-ghost-mode/commit/36c7914f0d77f0d4b384596109ace27817acbdb2))
+
 ## [0.9.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.8.1...v0.9.0) (2026-07-25)
 
 
