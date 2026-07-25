@@ -65,6 +65,77 @@ Until it is in HACS, add it as a custom repository:
 3. Install, restart Home Assistant.
 4. **Settings → Devices & Services → + Add Integration → Ghost Mode**.
 
+## Configuration
+
+**There is nothing to configure.** The setup dialog has no fields — confirm it
+and Ghost Mode starts learning on the next nightly run. Only one instance can
+be added.
+
+That is deliberate: an entity picker is a form you fill in once, get wrong, and
+never revisit. Ghost Mode reads the entity registry instead, so the thing you
+already curate in Home Assistant is the thing that steers it.
+
+### What gets learned
+
+Entities in these domains: `light`, `switch`, `fan`, `media_player`, `cover`,
+`input_boolean` — anything whose on/off state is visible from the street.
+
+Skipped automatically:
+
+- **Disabled** and **hidden** entities.
+- Anything with an **entity category** of config or diagnostic — the "LED
+  indicator", "child lock" and "restart" switches that ship with most Zigbee
+  and Tasmota devices. These are what make a naive "all switches" list useless.
+
+So to exclude something, hide or disable it in **Settings → Devices & Services
+→ Entities**. To include a new device, do nothing — it is picked up on the next
+run. Entities that leave the registry are dropped from the profile.
+
+### Recorder
+
+The learner reads recorder history and nothing else, so recorder settings
+decide what it can see. Two matter:
+
+- **`purge_keep_days`** (default 10) — the learner never looks further back
+  than this. It does not need to: each night's reading is folded into a
+  running average, so the profile outlives the rows it came from.
+- **`exclude:`** filters — an excluded entity leaves no rows, and Ghost Mode
+  learns nothing about it. It is *not* treated as "always off".
+
+If you have trimmed recorder down, make sure the entities you want simulated
+are still recorded:
+
+```yaml
+recorder:
+  include:
+    domains:
+      - light
+      - switch
+      - cover
+      - media_player
+```
+
+### Services
+
+| Service | What it does |
+| --- | --- |
+| `ghost_mode.learn_now` | Folds available history in immediately, instead of waiting for the nightly run at 03:17. Useful right after install, or for checking it works. |
+
+### Not exposed
+
+These are constants in the source, not settings. Change them there if you must:
+
+| Knob | File | Default |
+| --- | --- | --- |
+| `ALPHA` — how fast new days overwrite old habits | `rhythm.py` | `0.2` (~3 week half-life) |
+| `SLOT_MINUTES` — profile resolution | `rhythm.py` | `30` |
+| `GHOSTABLE_DOMAINS` | `discovery.py` | the six domains above |
+| `LEARN_HOUR`, `LEARN_MINUTE` | `learner.py` | `03:17` |
+
+`switch.ghost_mode` can be toggled today and survives restarts, but nothing
+acts on it yet — replay is not built. Learning happens regardless of whether
+the switch is on.
+
 ## Development
 
 ```text

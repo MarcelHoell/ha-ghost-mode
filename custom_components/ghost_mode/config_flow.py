@@ -7,7 +7,7 @@ from .const import DOMAIN
 
 
 class GhostModeConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Single-instance setup. Which entities to learn/replay is configured later."""
+    """Single-instance setup, no options: entities come from the registry."""
 
     VERSION = 1
 
