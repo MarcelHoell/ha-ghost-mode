@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.6.0...v0.7.0) (2026-07-25)
+
+
+### Features
+
+* add a forget service and clean up storage on removal ([19a946e](https://github.com/MarcelHoell/ha-ghost-mode/commit/19a946e2f39deef1db73e5ba852c54f2d19afac6))
+
+
+### Bug Fixes
+
+* trust recorder's retention and stop counting outages as darkness ([555423c](https://github.com/MarcelHoell/ha-ghost-mode/commit/555423c40fb116f3be8cad2cb730707609ef5e37))
+
 ## [0.6.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.5.1...v0.6.0) (2026-07-25)
 
 
