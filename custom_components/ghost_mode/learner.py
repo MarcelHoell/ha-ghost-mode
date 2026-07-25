@@ -19,12 +19,13 @@ from typing import Any
 from homeassistant.components.recorder import get_instance, history
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_EXCLUDE, DOMAIN
+from .const import CONF_EXCLUDE, DOMAIN, SIGNAL_PROFILE_UPDATED
 from .discovery import GHOSTABLE_DOMAINS, ghostable_entities
 from .rhythm import day_grid, empty_week, fold
 
@@ -135,6 +136,8 @@ class Learner:
 
         self._data["last_day"] = (today - dt.timedelta(days=1)).date().isoformat()
         await self._store.async_save(self._data)
+        async_dispatcher_send(self.hass, SIGNAL_PROFILE_UPDATED)
+
         if seen:
             _LOGGER.info(
                 "Learned %s day(s) of history for %s of %s entities, up to %s",

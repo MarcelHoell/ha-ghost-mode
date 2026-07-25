@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from .const import DOMAIN
 from .learner import async_setup_learner
 
-PLATFORMS = ["switch"]
+PLATFORMS = ["sensor", "switch"]
 
 SERVICE_LEARN_NOW = "learn_now"
 

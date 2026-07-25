@@ -153,6 +153,44 @@ the switch is on.
 
 ## Seeing what it learned
 
+### On a dashboard
+
+`sensor.ghost_mode_learned_rhythm` carries the whole profile. Its state is how
+many entities have a rhythm worth showing; the `rhythm` attribute holds the
+drawing. Paste this into a **Markdown card** — no custom card, no
+JavaScript, nothing to install:
+
+````yaml
+type: markdown
+content: |
+  ### Learned rhythm
+  Last full day learned: **{{ state_attr('sensor.ghost_mode_learned_rhythm', 'last_learned_day') }}**
+  {% for entity, week in state_attr('sensor.ghost_mode_learned_rhythm', 'rhythm').items() %}
+  **{{ entity }}**
+  ```text
+       0h    3h    6h    9h    12h   15h   18h   21h
+  {% for day, bars in week.items() %}{{ day }}  {{ bars }}
+  {% endfor %}```
+  {% endfor %}
+````
+
+Which draws:
+
+```text
+**light.wohnzimmer**
+     0h    3h    6h    9h    12h   15h   18h   21h
+Mon  ·········································██████·
+Tue  ··········································████··
+Wed  (never seen)
+Thu  ········································██████··
+```
+
+Entities that never vary — off all week, or a device setting that is on all
+week — are left out of the attribute. They stay in the profile; they just make
+no picture. That keeps the card readable and the attribute small.
+
+### As a file, for bug reports
+
 **Settings → Devices & Services → Ghost Mode → ⋮ → Download diagnostics.**
 
 The dump renders each entity's week as one line per weekday, one character per
@@ -200,6 +238,7 @@ custom_components/ghost_mode/
 ├── __init__.py      entry setup / unload, the learn_now service
 ├── config_flow.py   single-instance UI setup + the exclude option
 ├── switch.py        the master on/off switch
+├── sensor.py        the learned rhythm, for a markdown card to draw
 ├── discovery.py     finds switchable entities in the entity registry
 ├── rhythm.py        the pure logic — sampling, blending, group collapsing
 ├── learner.py       nightly fold of recorder history into that profile

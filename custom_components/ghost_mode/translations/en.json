@@ -26,6 +26,11 @@
       "ghost_mode": {
         "name": "Ghost Mode"
       }
+    },
+    "sensor": {
+      "profile": {
+        "name": "Learned rhythm"
+      }
     }
   },
   "services": {

@@ -58,6 +58,16 @@ def is_on(state: str) -> bool:
     return state.lower() not in OFF_STATES
 
 
+def varies(week: list[list[float] | None]) -> bool:
+    """Return whether this week has anything worth drawing.
+
+    A light that is off all week, or a device setting that is on all week, is
+    a flat line. Keep it in the profile, keep it out of the picture.
+    """
+    values = {value for day in week if day is not None for value in day}
+    return len(values) > 1
+
+
 def empty_week() -> list[list[float] | None]:
     """A profile with nothing learned yet: seven unknown weekdays."""
     return [None] * 7

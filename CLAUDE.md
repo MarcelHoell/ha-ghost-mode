@@ -19,6 +19,7 @@ dependency-free self-checks (plain `python3 tests/test_*.py`, no pytest, no HA).
 | `__init__.py` | entry setup/unload, `ghost_mode.learn_now` service, forwards to `switch` |
 | `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for the exclude list |
 | `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity` |
+| `sensor.py` | `sensor.ghost_mode_learned_rhythm` — sparklines in an attribute so a plain markdown card can draw them. `_unrecorded_attributes` keeps it out of the recorder |
 | `discovery.py` | entity-registry scan for switchable, user-facing entities |
 | `rhythm.py` | the pure logic — history → per-weekday half-hour grid, EMA blend, sparklines, group collapsing. **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare. Logic lands here purely to stay testable |
 | `learner.py` | recorder glue: nightly fold of unseen days into a `Store`d profile |

@@ -19,6 +19,7 @@ from rhythm import (  # noqa: E402
     fold,
     is_on,
     sparkline,
+    varies,
 )
 
 DAY = dt.datetime(2026, 7, 20)  # a Monday
@@ -97,6 +98,22 @@ def test_sparkline_reads_as_the_day():
 def test_weekdays_line_up_with_python():
     assert len(WEEKDAYS) == 7
     assert WEEKDAYS[DAY.weekday()] == "Mon", "index 0 must be Monday, as weekday() says"
+
+
+def test_varies_hides_the_flat_lines():
+    off_all_week = [[0.0] * SLOTS] * 7
+    on_all_week = [[1.0] * SLOTS] * 7  # the vacuum's UV lamp setting
+    assert not varies(off_all_week), "a light off all week is not worth drawing"
+    assert not varies(on_all_week), "a permanently-on setting is not either"
+    assert not varies(empty_week()), "nothing observed yet is not worth drawing"
+
+    real = [[0.0] * SLOTS] * 6 + [day_grid([(DAY, "off"), (DAY + dt.timedelta(hours=20), "on")], DAY)]
+    assert varies(real), "one real evening is enough to be worth drawing"
+
+    # A single half-hour of activity in an otherwise dark week still counts.
+    barely = [list([0.0] * SLOTS) for _ in range(7)]
+    barely[3][40] = 1.0
+    assert varies(barely)
 
 
 def test_group_replaces_its_members():
