@@ -76,6 +76,18 @@ class Learner:
 
     async def async_update(self) -> None:
         """Fold every complete day we have not seen yet into the profile."""
+        if not (entity_ids := self.entity_ids):
+            _LOGGER.warning(
+                "Nothing to learn from: no enabled, visible entities in %s",
+                ", ".join(sorted(GHOSTABLE_DOMAINS)),
+            )
+            return
+
+        # Prune before the date guard below, not after the fold. An upgrade or
+        # a new exclusion must take effect now, not whenever a day next
+        # happens to have new history in it.
+        await self._async_prune(entity_ids)
+
         today = dt_util.start_of_local_day()
         start = dt_util.start_of_local_day(today - dt.timedelta(days=MAX_BACKFILL_DAYS))
 
@@ -90,13 +102,6 @@ class Learner:
                 "Nothing to learn: everything up to %s is already folded in, and "
                 "today is not over yet",
                 self.last_day,
-            )
-            return
-
-        if not (entity_ids := self.entity_ids):
-            _LOGGER.warning(
-                "Nothing to learn from: no enabled, visible entities in %s",
-                ", ".join(sorted(GHOSTABLE_DOMAINS)),
             )
             return
 
@@ -129,11 +134,6 @@ class Learner:
             day_start = dt_util.start_of_local_day(day_start + dt.timedelta(days=1, hours=1))
             days += 1
 
-        # Entities that left the registry — or that the user just excluded —
-        # stop being replayed.
-        for gone in set(self.profile) - set(entity_ids):
-            del self.profile[gone]
-
         self._data["last_day"] = (today - dt.timedelta(days=1)).date().isoformat()
         await self._store.async_save(self._data)
         async_dispatcher_send(self.hass, SIGNAL_PROFILE_UPDATED)
@@ -154,6 +154,22 @@ class Learner:
                 start.date(),
                 today.date(),
             )
+
+    async def _async_prune(self, entity_ids: list[str]) -> None:
+        """Forget entities that left the registry, a group, or the user's list."""
+        if not (gone := set(self.profile) - set(entity_ids)):
+            return
+
+        for entity_id in gone:
+            del self.profile[entity_id]
+        await self._store.async_save(self._data)
+        async_dispatcher_send(self.hass, SIGNAL_PROFILE_UPDATED)
+        _LOGGER.info(
+            "Forgot %s entit%s no longer worth replaying: %s",
+            len(gone),
+            "y" if len(gone) == 1 else "ies",
+            ", ".join(sorted(gone)),
+        )
 
     async def async_safe_update(self, _arg: Any = None) -> None:
         """Run a fold without ever taking the integration down with it."""

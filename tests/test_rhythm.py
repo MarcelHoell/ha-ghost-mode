@@ -116,6 +116,19 @@ def test_varies_hides_the_flat_lines():
     assert varies(barely)
 
 
+def test_varies_judges_the_drawing_not_the_numbers():
+    # 0.2 draws as '·', same as 0.0 — numerically different, visually blank.
+    faint = [list([0.0] * SLOTS) for _ in range(7)]
+    faint[2][41] = 0.2
+    faint[4][47] = 0.2
+    assert sparkline(faint[2]) == "·" * SLOTS, "0.2 must still draw as off"
+    assert not varies(faint), "a row that draws as all dots is not worth showing"
+
+    # Nudge one slot past the threshold and it becomes worth drawing.
+    faint[2][41] = 0.4
+    assert varies(faint)
+
+
 def test_group_replaces_its_members():
     # The real case: one office group plus its two bulbs.
     candidates = {"light.buro", "light.buro_links", "light.buro_rechts", "light.kuche"}

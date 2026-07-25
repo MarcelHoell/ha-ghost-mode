@@ -59,13 +59,17 @@ def is_on(state: str) -> bool:
 
 
 def varies(week: list[list[float] | None]) -> bool:
-    """Return whether this week has anything worth drawing.
+    """Return whether this week has anything worth *drawing*.
 
     A light that is off all week, or a device setting that is on all week, is
     a flat line. Keep it in the profile, keep it out of the picture.
+
+    Deliberately judged on the rendered characters, not the raw floats: a week
+    of 0.0 and 0.2 differs numerically but draws as 48 identical dots, and
+    showing the viewer a blank row is worse than showing nothing.
     """
-    values = {value for day in week if day is not None for value in day}
-    return len(values) > 1
+    drawn = "".join(sparkline(day) for day in week if day is not None)
+    return len(set(drawn)) > 1
 
 
 def empty_week() -> list[list[float] | None]:

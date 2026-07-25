@@ -185,9 +185,9 @@ Wed  (never seen)
 Thu  ········································██████··
 ```
 
-Entities that never vary — off all week, or a device setting that is on all
-week — are left out of the attribute. They stay in the profile; they just make
-no picture. That keeps the card readable and the attribute small.
+Entities that draw as a flat line — off all week, or a device setting that is
+on all week — are left out of the attribute. They stay in the profile; they
+just make no picture. That keeps the card readable and the attribute small.
 
 ### As a file, for bug reports
 
