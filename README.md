@@ -31,6 +31,11 @@ it replays that with natural variation while you are away.
 3. **Replay** — a realistic evening, at slightly different times each day.
 4. **Yield** — stop the moment someone comes home, and tidy up after itself.
 
+It adds three entities: **`switch.ghost_mode`** to allow or forbid replay,
+**`binary_sensor.ghost_mode_replaying`** to tell you whether it is performing
+right now, and **`sensor.ghost_mode_learned_rhythm`** carrying what it has
+learned.
+
 ## Requirements
 
 - Home Assistant **2025.8** or newer
@@ -120,6 +125,16 @@ title: Ghost Mode
 entities:
   - entity: switch.ghost_mode
     name: Enabled
+  - entity: binary_sensor.ghost_mode_replaying
+    name: Performing right now
+  - type: attribute
+    entity: binary_sensor.ghost_mode_replaying
+    attribute: waiting_for
+    name: Idle because
+  - type: attribute
+    entity: binary_sensor.ghost_mode_replaying
+    attribute: entities_held
+    name: Lights it is holding
   - entity: alarm_control_panel.home
     name: Alarm
   - entity: sensor.ghost_mode_learned_rhythm
@@ -130,8 +145,27 @@ entities:
     name: Last day learned
 ```
 
-Swap `alarm_control_panel.home` for your own panel. Note this shows the
-*conditions* for replay, not whether it is switching anything at this moment.
+Swap `alarm_control_panel.home` for your own panel.
+
+`binary_sensor.ghost_mode_replaying` is the honest answer to "is it doing
+anything?" — on only while replay is actually driving. When it is off,
+**`waiting_for`** says why in plain words (*"the Ghost Mode switch is off"*,
+*"alarm_control_panel.home is disarmed"*), and it is `None` while running, so
+you can trigger a notification off it:
+
+```yaml
+trigger:
+  - platform: state
+    entity_id: binary_sensor.ghost_mode_replaying
+    to: "on"
+action:
+  - service: notify.mobile_app
+    data:
+      message: >
+        Ghost Mode has taken over the house.
+```
+
+**`restores_on_return`** lists exactly what it will put back when you get home.
 
 ## Seeing what it learned
 
@@ -208,6 +242,10 @@ Removing the integration deletes the stored profile too, so removing and
 re-adding really does start over.
 
 ## If something looks wrong
+
+**Replay isn't doing anything.** Look at `binary_sensor.ghost_mode_replaying`.
+Its **`waiting_for`** attribute says why in plain words — the switch is off,
+the alarm is disarmed, or the alarm entity is unavailable.
 
 **Nothing appears on the card.** The profile only fills in after the learner has
 run once. Call `ghost_mode.learn_now`, then check **Settings → System → Logs**

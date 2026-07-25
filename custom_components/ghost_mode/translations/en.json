@@ -39,6 +39,11 @@
       "profile": {
         "name": "Learned rhythm"
       }
+    },
+    "binary_sensor": {
+      "replaying": {
+        "name": "Replaying"
+      }
     }
   },
   "services": {

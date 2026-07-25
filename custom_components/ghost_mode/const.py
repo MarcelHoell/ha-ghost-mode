@@ -22,3 +22,6 @@ SIGNAL_PROFILE_UPDATED = f"{DOMAIN}_profile_updated"
 # Fired when the master switch flips, so replay reacts at once rather than
 # waiting for its next tick.
 SIGNAL_ENABLED = f"{DOMAIN}_enabled"
+
+# Fired when replay starts, stops, or changes what it is holding.
+SIGNAL_REPLAY = f"{DOMAIN}_replay"

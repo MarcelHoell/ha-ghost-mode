@@ -13,14 +13,24 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+    async_dispatcher_send,
+)
 from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_ALARM, CONF_DRIVE, DEFAULT_DRIVE, DOMAIN, SIGNAL_ENABLED
+from .const import (
+    CONF_ALARM,
+    CONF_DRIVE,
+    DEFAULT_DRIVE,
+    DOMAIN,
+    SIGNAL_ENABLED,
+    SIGNAL_REPLAY,
+)
 from .learner import Learner
 from .rhythm import SLOT_MINUTES, desired_on, is_on
 
@@ -58,6 +68,39 @@ class Replay:
         # automation that switches our light straight back off.
         self._acted: dict[str, dt.datetime] = {}
         self._running = False
+        self._announced: tuple | None = None
+
+    @property
+    def is_running(self) -> bool:
+        """Return whether replay is driving the house at this moment."""
+        return self._running
+
+    @property
+    def held(self) -> list[str]:
+        """Return the entities replay would put back if you walked in now."""
+        return sorted(self._driven)
+
+    @callback
+    def blocked_by(self) -> str | None:
+        """Return why replay is not running, or None if nothing is stopping it."""
+        if not self.hass.data[DOMAIN].get("enabled"):
+            return "the Ghost Mode switch is off"
+        if not (alarm := self.entry.options.get(CONF_ALARM)):
+            return None
+        if (state := self.hass.states.get(alarm)) is None:
+            return f"{alarm} is unavailable"
+        if state.state not in AWAY_STATES:
+            return f"{alarm} is {state.state}"
+        return None
+
+    @callback
+    def _announce(self) -> None:
+        """Tell the binary sensor, but only when something actually changed."""
+        snapshot = (self._running, frozenset(self._driven))
+        if snapshot == self._announced:
+            return
+        self._announced = snapshot
+        async_dispatcher_send(self.hass, SIGNAL_REPLAY)
 
     @property
     def _domains(self) -> set[str]:
@@ -66,15 +109,12 @@ class Replay:
 
     @callback
     def is_away(self) -> bool:
-        """Return whether replay should be driving the house right now."""
-        if not self.hass.data[DOMAIN].get("enabled"):
-            return False
-        if not (alarm := self.entry.options.get(CONF_ALARM)):
-            # No alarm configured: the switch is an explicit human action, so
-            # honour it on its own rather than refusing to do anything.
-            return True
-        state = self.hass.states.get(alarm)
-        return state is not None and state.state in AWAY_STATES
+        """Return whether replay should be driving the house right now.
+
+        With no alarm configured the switch decides alone: it is an explicit
+        human action, so honour it rather than refusing to do anything.
+        """
+        return self.blocked_by() is None
 
     async def async_evaluate(self, _trigger: object = None) -> None:
         """Bring the house into line with the profile, or stand down.
@@ -110,6 +150,8 @@ class Replay:
 
             await self._async_set(entity_id, want, state.state)
 
+        self._announce()
+
     async def _async_set(self, entity_id: str, on: bool, before: str) -> None:
         """Switch one entity, remembering what it was first."""
         domain = entity_id.split(".", 1)[0]
@@ -141,6 +183,7 @@ class Replay:
 
         self._driven.clear()
         self._acted.clear()
+        self._announce()
         if reverted:
             _LOGGER.info("Replay stopped; put %s entit%s back", reverted,
                          "y" if reverted == 1 else "ies")

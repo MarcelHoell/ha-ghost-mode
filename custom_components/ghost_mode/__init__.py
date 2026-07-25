@@ -14,7 +14,7 @@ from .const import DOMAIN
 from .learner import STORAGE_KEY, STORAGE_VERSION, async_setup_learner
 from .replay import async_setup_replay
 
-PLATFORMS = ["sensor", "switch"]
+PLATFORMS = ["binary_sensor", "sensor", "switch"]
 
 SERVICE_LEARN_NOW = "learn_now"
 SERVICE_FORGET = "forget"

@@ -360,6 +360,38 @@ async def test_coming_home_undoes_only_replays_own_work(
     )
 
 
+async def test_replaying_sensor_reports_rather_than_guesses(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """Switch-on plus armed-away is the condition, not the fact."""
+    replay = await _arm(hass, entry, "disarmed")
+    hass.data[DOMAIN]["enabled"] = False
+
+    sensor = "binary_sensor.ghost_mode_replaying"
+    assert hass.states.get(sensor).state == "off"
+    assert "switch is off" in hass.states.get(sensor).attributes["waiting_for"]
+
+    hass.data[DOMAIN]["enabled"] = True
+    hass.states.async_set("light.hall", "off")
+    replay.learner.profile["light.hall"] = [[1.0] * 48] * 7
+    hass.states.async_set("alarm_control_panel.house", "armed_away")
+    await hass.async_block_till_done()
+
+    state = hass.states.get(sensor)
+    assert state.state == "on"
+    assert state.attributes["waiting_for"] is None
+    assert state.attributes["entities_held"] == 1
+    assert state.attributes["restores_on_return"] == ["light.hall"]
+
+    hass.states.async_set("alarm_control_panel.house", "disarmed")
+    await hass.async_block_till_done()
+
+    state = hass.states.get(sensor)
+    assert state.state == "off"
+    assert state.attributes["entities_held"] == 0
+    assert "disarmed" in state.attributes["waiting_for"]
+
+
 async def test_replayed_days_are_never_learned_from(
     hass: HomeAssistant, entry: MockConfigEntry
 ):
