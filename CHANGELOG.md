@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.8.1...v0.9.0) (2026-07-25)
+
+
+### Features
+
+* replay the learned rhythm while the house is empty ([0e319b4](https://github.com/MarcelHoell/ha-ghost-mode/commit/0e319b447d8b041fe9df54ac275ea0600e55e757))
+
+
+### Bug Fixes
+
+* do not schedule replay from an executor thread ([431f62f](https://github.com/MarcelHoell/ha-ghost-mode/commit/431f62f47d60a8cc64b47c653def56ba07af1331))
+* prune replayed days against today, not against the day recorded ([dd6d91c](https://github.com/MarcelHoell/ha-ghost-mode/commit/dd6d91cbaadd317524bda9814be7e094ddd29524))
+
 ## [0.8.1](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.8.0...v0.8.1) (2026-07-25)
 
 
