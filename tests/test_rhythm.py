@@ -13,6 +13,7 @@ from rhythm import (  # noqa: E402
     ALPHA,
     SLOTS,
     WEEKDAYS,
+    collapse_groups,
     day_grid,
     empty_week,
     fold,
@@ -96,6 +97,35 @@ def test_sparkline_reads_as_the_day():
 def test_weekdays_line_up_with_python():
     assert len(WEEKDAYS) == 7
     assert WEEKDAYS[DAY.weekday()] == "Mon", "index 0 must be Monday, as weekday() says"
+
+
+def test_group_replaces_its_members():
+    # The real case: one office group plus its two bulbs.
+    candidates = {"light.buro", "light.buro_links", "light.buro_rechts", "light.kuche"}
+    groups = {"light.buro": ["light.buro_links", "light.buro_rechts"]}
+    assert collapse_groups(candidates, groups) == {"light.buro", "light.kuche"}
+
+
+def test_members_survive_when_the_group_is_not_learned():
+    # Group excluded by the user (or hidden): keep the bulbs, or we lose the room.
+    candidates = {"light.buro_links", "light.buro_rechts"}
+    groups = {"light.buro": ["light.buro_links", "light.buro_rechts"]}
+    assert collapse_groups(candidates, groups) == candidates
+
+
+def test_nested_groups_keep_only_the_outermost():
+    candidates = {"light.all", "light.buro", "light.buro_links"}
+    groups = {
+        "light.all": ["light.buro"],
+        "light.buro": ["light.buro_links"],
+    }
+    # light.all covers light.buro, which covers the bulb.
+    assert collapse_groups(candidates, groups) == {"light.all"}
+
+
+def test_no_groups_changes_nothing():
+    candidates = {"light.a", "light.b"}
+    assert collapse_groups(candidates, {}) == candidates
 
 
 def test_empty_week_has_seven_unknown_days():

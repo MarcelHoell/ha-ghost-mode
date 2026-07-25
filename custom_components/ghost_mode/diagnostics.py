@@ -11,8 +11,8 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-from .discovery import GHOSTABLE_DOMAINS, ghostable_entities
+from .const import CONF_EXCLUDE, DOMAIN
+from .discovery import GHOSTABLE_DOMAINS
 from .rhythm import SLOT_MINUTES, WEEKDAYS, sparkline
 
 LEGEND = (
@@ -24,10 +24,15 @@ LEGEND = (
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
-    """Return the learned rhythm, readable first and raw underneath."""
+    """Return the learned rhythm, readable rather than raw.
+
+    ponytail: sparklines only. The underlying floats are 336 numbers per
+    entity — same information, fifty times the download, unreadable either
+    way. Read `.storage/ghost_mode.profile` if you need the exact values.
+    """
     learner = hass.data[DOMAIN]["learner"]
     profile = learner.profile
-    discovered = ghostable_entities(hass)
+    discovered = learner.entity_ids
 
     return {
         "last_learned_day": learner.last_day,
@@ -39,6 +44,7 @@ async def async_get_config_entry_diagnostics(
         # or they simply have not changed state yet.
         "discovered_but_unlearned": sorted(set(discovered) - set(profile)),
         "domains_watched": sorted(GHOSTABLE_DOMAINS),
+        "excluded_by_user": sorted(entry.options.get(CONF_EXCLUDE, [])),
         "rhythm": {
             entity_id: {
                 WEEKDAYS[weekday]: sparkline(day)
@@ -46,5 +52,4 @@ async def async_get_config_entry_diagnostics(
             }
             for entity_id, week in sorted(profile.items())
         },
-        "raw": profile,
     }

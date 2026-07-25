@@ -10,6 +10,17 @@
       "already_configured": "Ghost Mode is already set up."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Ghost Mode options",
+        "description": "Ghost Mode finds its own entities. Use this only to drop ones it should ignore — typically device settings that are permanently on and that nobody outside can see.",
+        "data": {
+          "exclude": "Never learn or replay these"
+        }
+      }
+    }
+  },
   "entity": {
     "switch": {
       "ghost_mode": {

@@ -1,11 +1,30 @@
 """The rhythm maths: turning state history into per-weekday on/off odds.
 
 Deliberately free of Home Assistant imports so it runs — and is testable —
-on its own. `learner.py` is the glue that feeds it recorder data.
+on its own. `learner.py` and `discovery.py` are the glue that feed it.
 """
 from __future__ import annotations
 
 import datetime as dt
+
+
+def collapse_groups(
+    candidates: set[str], members_by_group: dict[str, list[str]]
+) -> set[str]:
+    """Drop entities that a group we already learn speaks for.
+
+    Learning a light group *and* its three bulbs means replaying the same
+    physical light four times. The group wins: it is the thing a person
+    actually switches. Lives here, not in `discovery.py`, only so it can be
+    tested without Home Assistant.
+    """
+    covered = {
+        member
+        for group, members in members_by_group.items()
+        if group in candidates
+        for member in members
+    }
+    return candidates - covered
 
 SLOT_MINUTES = 30
 SLOTS = 24 * 60 // SLOT_MINUTES

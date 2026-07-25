@@ -20,7 +20,7 @@ SERVICE_LEARN_NOW = "learn_now"
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Ghost Mode from a config entry."""
     hass.data.setdefault(DOMAIN, {})
-    learner = await async_setup_learner(hass)
+    learner = await async_setup_learner(hass, entry)
     hass.data[DOMAIN]["learner"] = learner
 
     async def _learn_now(_call: ServiceCall) -> None:
@@ -29,6 +29,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.services.async_register(DOMAIN, SERVICE_LEARN_NOW, _learn_now)
 
+    # Changing the exclusion list reloads the entry: OptionsFlowWithReload
+    # handles that, so there is deliberately no update listener here.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

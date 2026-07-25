@@ -14,14 +14,15 @@ dependency-free self-checks (plain `python3 tests/test_*.py`, no pytest, no HA).
 
 | File | Role |
 | --- | --- |
-| `const.py` | `DOMAIN` only |
+| `const.py` | `DOMAIN`, `CONF_EXCLUDE` |
 | `manifest.json` | domain, version, `iot_class: calculated`, `dependencies: [recorder]`, no requirements |
 | `__init__.py` | entry setup/unload, `ghost_mode.learn_now` service, forwards to `switch` |
-| `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) |
+| `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for the exclude list |
 | `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity` |
 | `discovery.py` | entity-registry scan for switchable, user-facing entities |
-| `rhythm.py` | the maths — history → per-weekday half-hour grid, EMA blend. **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare |
+| `rhythm.py` | the pure logic — history → per-weekday half-hour grid, EMA blend, sparklines, group collapsing. **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare. Logic lands here purely to stay testable |
 | `learner.py` | recorder glue: nightly fold of unseen days into a `Store`d profile |
+| `diagnostics.py` | downloadable dump; sparklines only, never the raw floats |
 
 Not named `profile.py` — that shadows a stdlib module.
 
@@ -40,6 +41,16 @@ under `ghost_mode.profile`.
 
 `ALPHA` and `SLOT_MINUTES` are the tuning knobs; real homes are noisier than
 the model.
+
+Discovery excludes, in order: disabled/hidden entities, anything with an
+`entity_category`, Ghost Mode's own entities (never learn from your own
+replay), members of a group that is itself learned, and the user's
+`CONF_EXCLUDE` list. That last one exists because `entity_category` is only as
+good as the integration setting it — a Dreame vacuum's always-on "UV
+sterilisation" switch is the motivating real-world case.
+
+Options changes reload the entry via `OptionsFlowWithReload`. Do **not** add a
+config-entry update listener; HA forbids combining the two.
 
 ## Roadmap (not built yet)
 

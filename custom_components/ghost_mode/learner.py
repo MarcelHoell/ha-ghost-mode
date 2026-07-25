@@ -17,13 +17,14 @@ import logging
 from typing import Any
 
 from homeassistant.components.recorder import get_instance, history
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import CONF_EXCLUDE, DOMAIN
 from .discovery import GHOSTABLE_DOMAINS, ghostable_entities
 from .rhythm import day_grid, empty_week, fold
 
@@ -43,9 +44,10 @@ LEARN_HOUR, LEARN_MINUTE = 3, 17
 class Learner:
     """Owns the stored profile and the nightly fold."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the learner."""
         self.hass = hass
+        self.entry = entry
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, Any] = {"last_day": None, "entities": {}}
 
@@ -53,6 +55,13 @@ class Learner:
     def profile(self) -> dict[str, list[list[float] | None]]:
         """Return the learned profile, keyed by entity id then weekday."""
         return self._data["entities"]
+
+    @property
+    def entity_ids(self) -> list[str]:
+        """Return the entities to learn, honouring the user's exclusions."""
+        return ghostable_entities(
+            self.hass, self.entry.options.get(CONF_EXCLUDE, [])
+        )
 
     @property
     def last_day(self) -> str | None:
@@ -83,7 +92,7 @@ class Learner:
             )
             return
 
-        if not (entity_ids := ghostable_entities(self.hass)):
+        if not (entity_ids := self.entity_ids):
             _LOGGER.warning(
                 "Nothing to learn from: no enabled, visible entities in %s",
                 ", ".join(sorted(GHOSTABLE_DOMAINS)),
@@ -119,7 +128,8 @@ class Learner:
             day_start = dt_util.start_of_local_day(day_start + dt.timedelta(days=1, hours=1))
             days += 1
 
-        # Entities that left the registry stop being replayed.
+        # Entities that left the registry — or that the user just excluded —
+        # stop being replayed.
         for gone in set(self.profile) - set(entity_ids):
             del self.profile[gone]
 
@@ -150,13 +160,13 @@ class Learner:
             _LOGGER.exception("Learning run failed")
 
 
-async def async_setup_learner(hass: HomeAssistant) -> Learner:
+async def async_setup_learner(hass: HomeAssistant, entry: ConfigEntry) -> Learner:
     """Load the profile, schedule the catch-up and the nightly run.
 
     The catch-up waits for HA to have started rather than running inline: a
     history query is slow, and a failing one must not stop the entry loading.
     """
-    learner = Learner(hass)
+    learner = Learner(hass, entry)
     await learner.async_load()
 
     async_at_started(hass, learner.async_safe_update)

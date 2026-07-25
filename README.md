@@ -67,9 +67,9 @@ Until it is in HACS, add it as a custom repository:
 
 ## Configuration
 
-**There is nothing to configure.** The setup dialog has no fields — confirm it
-and Ghost Mode starts learning on the next nightly run. Only one instance can
-be added.
+**There is almost nothing to configure.** The setup dialog has no fields —
+confirm it and Ghost Mode starts learning on the next nightly run. Only one
+instance can be added.
 
 That is deliberate: an entity picker is a form you fill in once, get wrong, and
 never revisit. Ghost Mode reads the entity registry instead, so the thing you
@@ -86,10 +86,25 @@ Skipped automatically:
 - Anything with an **entity category** of config or diagnostic — the "LED
   indicator", "child lock" and "restart" switches that ship with most Zigbee
   and Tasmota devices. These are what make a naive "all switches" list useless.
+- **Group members**, when the group itself is learned. A light group and its
+  three bulbs are one light to a passer-by, so only the group is kept.
+- **Ghost Mode's own entities**, so it can never learn from its own replay.
 
 So to exclude something, hide or disable it in **Settings → Devices & Services
 → Entities**. To include a new device, do nothing — it is picked up on the next
 run. Entities that leave the registry are dropped from the profile.
+
+### The one option
+
+**Settings → Devices & Services → Ghost Mode → Configure** takes a list of
+entities to ignore outright.
+
+It exists because the entity-category filter only works when an integration
+bothers to set it. Some do not: a robot vacuum's "UV sterilisation" and
+"auto drying" switches are permanently on, invisible from outside, and get
+learned as constantly-lit — exactly the sort of thing to drop here. Changing
+the list reloads the integration, and the excluded entities disappear from the
+profile on the next run.
 
 ### Recorder
 
@@ -142,7 +157,7 @@ the switch is on.
 
 The dump renders each entity's week as one line per weekday, one character per
 half hour, starting at local midnight — `·` off, `▪` sometimes, `█` reliably
-on. The raw values are underneath it.
+on.
 
 ```text
 light.living_room
@@ -156,6 +171,10 @@ not been observed on a Saturday yet.
 
 It also reports `discovered_but_unlearned` — entities Ghost Mode can see but
 has no history for. A long list there usually means recorder is excluding them.
+
+The dump deliberately omits the raw numbers: 336 floats per entity is the same
+information at fifty times the size. Read `.storage/ghost_mode.profile` if you
+need exact values.
 
 ### If it looks like nothing happened
 
@@ -179,12 +198,13 @@ addons by default. Prefer the diagnostics download.
 ```text
 custom_components/ghost_mode/
 ├── __init__.py      entry setup / unload, the learn_now service
-├── config_flow.py   single-instance UI setup
+├── config_flow.py   single-instance UI setup + the exclude option
 ├── switch.py        the master on/off switch
 ├── discovery.py     finds switchable entities in the entity registry
-├── rhythm.py        history → per-weekday profile (no HA imports)
+├── rhythm.py        the pure logic — sampling, blending, group collapsing
 ├── learner.py       nightly fold of recorder history into that profile
-├── const.py         DOMAIN
+├── diagnostics.py   the downloadable "what did it learn" dump
+├── const.py         DOMAIN, option keys
 ├── services.yaml
 └── manifest.json
 tests/
