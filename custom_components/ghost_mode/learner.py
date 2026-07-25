@@ -89,7 +89,14 @@ class Learner:
         await self._async_prune(entity_ids)
 
         today = dt_util.start_of_local_day()
-        start = dt_util.start_of_local_day(today - dt.timedelta(days=MAX_BACKFILL_DAYS))
+        query_start = dt_util.start_of_local_day(
+            today - dt.timedelta(days=MAX_BACKFILL_DAYS)
+        )
+        # Never fold the oldest day we can query. It sits on the recorder's
+        # purge horizon, where the row that last turned something off may
+        # already be gone — which makes the whole day read as on-from-midnight
+        # for every entity at once. It is only good enough to carry state in.
+        start = dt_util.start_of_local_day(query_start + dt.timedelta(days=1, hours=1))
 
         if (last_day := self._data.get("last_day")) is not None:
             resume = dt_util.start_of_local_day(
@@ -108,7 +115,7 @@ class Learner:
         states = await get_instance(self.hass).async_add_executor_job(
             lambda: history.get_significant_states(
                 self.hass,
-                dt_util.as_utc(start),
+                dt_util.as_utc(query_start),
                 dt_util.as_utc(today),
                 entity_ids,
                 no_attributes=True,

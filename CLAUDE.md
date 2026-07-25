@@ -40,6 +40,16 @@ Profile shape: `{entity_id: [week], ...}` where `week` is 7 entries (Mon=0) of
 either `None` (never observed) or 48 floats in 0.0–1.0. Persisted via `Store`
 under `ghost_mode.profile`.
 
+Each float is **the fraction of that half hour the entity was on**, integrated
+from the state changes — not a sample of the instant at the slot boundary.
+Motion-triggered lights are the reason: a two-minute hall light would be
+invisible at 29 boundaries out of 30 and a solid half hour at the thirtieth.
+
+The oldest day the query can reach is deliberately **not folded** — it sits on
+the recorder purge horizon, where the row that last turned something off may be
+gone, making the day read as on-from-midnight for every entity at once. It is
+queried only to carry state into the first day that *is* folded.
+
 `ALPHA` and `SLOT_MINUTES` are the tuning knobs; real homes are noisier than
 the model.
 
@@ -60,6 +70,17 @@ config-entry update listener; HA forbids combining the two.
 2. A replay coordinator that reproduces the profile with time jitter while the
    switch is on and the home is away, and yields immediately on real presence.
    It must not learn from its own output — tag or track the entities it drives.
+
+Constraints replay will hit, worth designing for up front:
+
+- **Motion automations keep running while away.** Replaying a motion-driven
+  light means fighting the automation that turns it off after N minutes — or
+  being silently overridden. Short slot values (`< ~0.2`) mark exactly those
+  entities; treat them as brief flicks, and expect the light to go off on its
+  own without treating that as real presence.
+- **Duplicate entities for one device** (a TV as `media_player` + `switch` +
+  `light`) would fire several service calls at the same hardware. Group
+  collapsing only catches real HA groups; the rest is the exclude option.
 
 ## Conventions
 

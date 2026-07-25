@@ -93,7 +93,7 @@ class GhostModeProfileSensor(SensorEntity):
         learner = self.hass.data[DOMAIN].get("learner")
         return {
             "last_learned_day": learner.last_day if learner else None,
-            "legend": "· off   ▪ sometimes   █ reliably on",
+            "legend": "· off   ▁ briefly   ▃ ▅ partly   █ on",
             "rhythm": {
                 entity_id: {
                     WEEKDAYS[weekday]: sparkline(day)

@@ -16,8 +16,9 @@ from .discovery import GHOSTABLE_DOMAINS
 from .rhythm import SLOT_MINUTES, WEEKDAYS, sparkline
 
 LEGEND = (
-    "One character per 30 minutes, local midnight first. "
-    "'·' off, '▪' sometimes on, '█' reliably on."
+    "One character per 30 minutes, local midnight first, showing how much of "
+    "that half hour the entity was on: '·' none, '▁' briefly, '▃'/'▅' partly, "
+    "'█' all of it."
 )
 
 

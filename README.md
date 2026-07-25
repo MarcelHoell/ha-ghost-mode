@@ -56,6 +56,12 @@ Because the recorder purges old rows (`purge_keep_days`, 10 by default), the
 profile is *accumulated* with a moving average rather than re-derived. Give it
 a few weeks before it knows your evenings.
 
+Each half-hour slot stores **how much of that half hour the entity was on**,
+not whether it happened to be on at the boundary. That is what makes
+motion-triggered lights work: a hall light on for two minutes stores as `0.067`
+and stays a brief flick, instead of being missed entirely or inflated into a
+solid half hour.
+
 ## Installation
 
 Until it is in HACS, add it as a custom repository:
@@ -194,8 +200,8 @@ just make no picture. That keeps the card readable and the attribute small.
 **Settings → Devices & Services → Ghost Mode → ⋮ → Download diagnostics.**
 
 The dump renders each entity's week as one line per weekday, one character per
-half hour, starting at local midnight — `·` off, `▪` sometimes, `█` reliably
-on.
+half hour, starting at local midnight. The character says how much of that half
+hour the entity was on — `·` none, `▁` briefly, `▃`/`▅` partly, `█` all of it.
 
 ```text
 light.living_room

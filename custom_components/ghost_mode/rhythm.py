@@ -42,15 +42,26 @@ ALPHA = 0.2
 
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
-# Coarse enough to read at a glance in a diagnostics dump: off / sometimes / on.
-BARS = "·▪█"
+# Five levels, because three could not tell "briefly on" from "off" — and a
+# motion-triggered hall light lives entirely in that gap.
+BARS = "·▁▃▅█"
 
 
 def sparkline(day: list[float] | None) -> str:
-    """Render one weekday as 48 half-hour characters, midnight first."""
+    """Render one weekday as 48 half-hour characters, midnight first.
+
+    Any activity at all draws as at least `▁`. A light on for two minutes is
+    a real thing that happened; rounding it away to `·` would make the picture
+    lie in the one direction that matters.
+    """
     if day is None:
         return "(never seen)"
-    return "".join(BARS[min(len(BARS) - 1, int(value * len(BARS)))] for value in day)
+    return "".join(
+        BARS[0]
+        if value <= 0
+        else BARS[max(1, min(len(BARS) - 1, int(value * len(BARS))))]
+        for value in day
+    )
 
 
 def is_on(state: str) -> bool:
@@ -80,25 +91,50 @@ def empty_week() -> list[list[float] | None]:
 def day_grid(
     changes: list[tuple[dt.datetime, str]], day_start: dt.datetime
 ) -> list[float] | None:
-    """Sample one entity's history into SLOTS on/off values for one day.
+    """Measure what fraction of each half hour the entity was on.
 
     `changes` is that entity's state history over the whole queried range,
     ascending, starting with the state it held when the range began — so the
     same list can be sampled for each day in the range. Returns None when there
     is no history at all.
+
+    Integrating rather than sampling the instant at each boundary matters for
+    anything a motion sensor drives: a hall light that is on for two minutes
+    would be invisible at 29 boundaries out of 30 and, on the thirtieth, would
+    read as a solid half hour. Neither is true. Two minutes now stores as
+    0.067, which replay can reproduce as a brief flick rather than a
+    conspicuous half-hour block.
     """
     if not changes:
         return None
 
-    grid: list[float] = []
+    slot = dt.timedelta(minutes=SLOT_MINUTES)
     idx = 0
     current = changes[0][1]
-    for slot in range(SLOTS):
-        at = day_start + dt.timedelta(minutes=slot * SLOT_MINUTES)
-        while idx < len(changes) and changes[idx][0] <= at:
-            current = changes[idx][1]
+
+    # Wind forward to whatever was true as this day began.
+    while idx < len(changes) and changes[idx][0] <= day_start:
+        current = changes[idx][1]
+        idx += 1
+
+    grid: list[float] = []
+    for index in range(SLOTS):
+        slot_start = day_start + slot * index
+        slot_end = slot_start + slot
+        on = dt.timedelta()
+        cursor = slot_start
+
+        while idx < len(changes) and changes[idx][0] < slot_end:
+            when, state = changes[idx]
+            if is_on(current):
+                on += when - cursor
+            cursor = when
+            current = state
             idx += 1
-        grid.append(1.0 if is_on(current) else 0.0)
+
+        if is_on(current):
+            on += slot_end - cursor
+        grid.append(on / slot)
     return grid
 
 

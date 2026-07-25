@@ -63,6 +63,35 @@ def test_grid_is_reusable_across_days_in_one_range():
     assert day_grid(changes, tuesday) == [0.0] * SLOTS
 
 
+def test_grid_measures_duration_not_the_instant():
+    # A motion light: on 20:00-20:02, off again. Nothing at any slot boundary.
+    on = DAY + dt.timedelta(hours=20)
+    changes = [(DAY, "off"), (on, "on"), (on + dt.timedelta(minutes=2), "off")]
+    grid = day_grid(changes, DAY)
+    assert grid[40] == 2 / 30, "two of thirty minutes, not a whole slot and not zero"
+    assert sum(grid[:40]) == 0 and sum(grid[41:]) == 0, "and nothing leaks either side"
+
+
+def test_grid_splits_a_slot_it_straddles():
+    # On at 20:15, off at 20:45: half of one slot, half of the next.
+    changes = [
+        (DAY, "off"),
+        (DAY + dt.timedelta(hours=20, minutes=15), "on"),
+        (DAY + dt.timedelta(hours=20, minutes=45), "off"),
+    ]
+    grid = day_grid(changes, DAY)
+    assert grid[40] == 0.5 and grid[41] == 0.5
+
+
+def test_grid_counts_several_events_in_one_slot():
+    # Three one-minute triggers inside the same half hour.
+    changes = [(DAY, "off")]
+    for minute in (1, 10, 20):
+        at = DAY + dt.timedelta(hours=20, minutes=minute)
+        changes += [(at, "on"), (at + dt.timedelta(minutes=1), "off")]
+    assert day_grid(changes, DAY)[40] == 3 / 30
+
+
 def test_no_history_is_not_an_empty_day():
     assert day_grid([], DAY) is None, "no rows must not be learned as 'always off'"
 
@@ -87,12 +116,21 @@ def test_sparkline_reads_as_the_day():
     assert sparkline(None) == "(never seen)"
     assert sparkline([0.0] * SLOTS) == "·" * SLOTS
     assert sparkline([1.0] * SLOTS) == "█" * SLOTS, "1.0 must not index off the end"
-    assert sparkline([0.5] * SLOTS) == "▪" * SLOTS
     assert len(sparkline([0.0] * SLOTS)) == SLOTS, "one character per slot"
     # A morning-only day should be readable at a glance.
     assert sparkline(day_grid([(DAY, "off"), (DAY + dt.timedelta(hours=8), "on")], DAY)) == (
         "·" * 16 + "█" * 32
     )
+
+
+def test_sparkline_never_rounds_activity_away():
+    # Two minutes of a motion-triggered light in a half hour.
+    brief = 2 / 30
+    assert sparkline([brief] * SLOTS) == "▁" * SLOTS, "a real event must be visible"
+    assert sparkline([0.0] * SLOTS) == "·" * SLOTS, "and off must stay blank"
+    # The ramp still rises with the value.
+    levels = [sparkline([v])[0] for v in (0.0, 0.05, 0.3, 0.5, 0.7, 1.0)]
+    assert levels == ["·", "▁", "▁", "▃", "▅", "█"], levels
 
 
 def test_weekdays_line_up_with_python():
@@ -117,16 +155,15 @@ def test_varies_hides_the_flat_lines():
 
 
 def test_varies_judges_the_drawing_not_the_numbers():
-    # 0.2 draws as '·', same as 0.0 — numerically different, visually blank.
-    faint = [list([0.0] * SLOTS) for _ in range(7)]
-    faint[2][41] = 0.2
-    faint[4][47] = 0.2
-    assert sparkline(faint[2]) == "·" * SLOTS, "0.2 must still draw as off"
-    assert not varies(faint), "a row that draws as all dots is not worth showing"
+    # 0.9 and 1.0 both draw as '█': numerically different, visually identical.
+    nearly_flat = [[0.9 if i % 2 else 1.0 for i in range(SLOTS)] for _ in range(7)]
+    assert set(sparkline(nearly_flat[0])) == {"█"}
+    assert not varies(nearly_flat), "an all-█ week is a flat line, whatever the floats"
 
-    # Nudge one slot past the threshold and it becomes worth drawing.
-    faint[2][41] = 0.4
-    assert varies(faint)
+    # A single brief motion event is enough, because it now draws.
+    with_motion = [list([0.0] * SLOTS) for _ in range(7)]
+    with_motion[2][41] = 2 / 30
+    assert varies(with_motion)
 
 
 def test_group_replaces_its_members():
