@@ -8,9 +8,10 @@ import pytest
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ghost_mode.const import DOMAIN
+from custom_components.ghost_mode.const import DOMAIN, SIGNAL_PROFILE_UPDATED
 from custom_components.ghost_mode.discovery import ghostable_entities
 
 
@@ -111,13 +112,13 @@ async def test_sensor_reports_only_entities_worth_drawing(
     learner.profile["light.evening"] = [[0.0] * 24 + [1.0] * 24] + [None] * 6
     learner.profile["switch.always_on"] = [[1.0] * 48] * 7
     learner.profile["light.never_on"] = [[0.0] * 48] * 7
-    hass.data[DOMAIN]["learner"] = learner
 
-    state = hass.states.get("sensor.ghost_mode_learned_rhythm")
-    hass.bus.async_fire("dummy")  # force a read of the properties
-    state = hass.states.get("sensor.ghost_mode_learned_rhythm")
+    # The sensor only re-renders when the learner says so, which is the wiring
+    # worth testing: a cached state would still show the old (empty) profile.
+    async_dispatcher_send(hass, SIGNAL_PROFILE_UPDATED)
+    await hass.async_block_till_done()
 
-    rhythm = state.attributes["rhythm"]
+    rhythm = hass.states.get("sensor.ghost_mode_learned_rhythm").attributes["rhythm"]
     assert "light.evening" in rhythm, "a real evening is worth drawing"
     assert "switch.always_on" not in rhythm, "a flat line is not"
     assert "light.never_on" not in rhythm
