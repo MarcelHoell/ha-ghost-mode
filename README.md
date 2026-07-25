@@ -277,9 +277,19 @@ tests/
 └── test_rhythm.py   plain `python3 tests/test_rhythm.py`, no pytest
 ```
 
-No dependencies, no build step. CI runs `hassfest` + HACS validation.
+No dependencies, no build step. CI runs the tests, `hassfest` and HACS
+validation.
+
+Two test layers:
+
+```bash
+python tests/test_rhythm.py                  # the maths, no Home Assistant
+pip install pytest-homeassistant-custom-component && pytest -q   # the rest
+```
+
 `rhythm.py` deliberately imports nothing from Home Assistant, so its self-check
-runs on a bare interpreter.
+runs on a bare interpreter. `tests/test_integration.py` needs a real `hass`,
+and therefore **Python 3.13** — Home Assistant 2025.8 does not support 3.12.
 Releases are automated by [release-please](https://github.com/googleapis/release-please)
 from Conventional Commits — merge the release PR and the version in
 `manifest.json` is bumped and tagged automatically.

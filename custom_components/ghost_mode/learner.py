@@ -34,9 +34,11 @@ _LOGGER = logging.getLogger(__name__)
 STORAGE_KEY = f"{DOMAIN}.profile"
 STORAGE_VERSION = 1
 
-# Never look further back than recorder is likely to hold. Beyond this the
-# query just returns nothing and costs time.
-MAX_BACKFILL_DAYS = 10
+# A ceiling on how far back to look, whatever recorder is keeping. Four weeks
+# is already past the EMA's ~3-week half-life, so older days barely move the
+# profile while the query grows without limit. Someone keeping a year of
+# history does not want that year read on every fresh start.
+MAX_BACKFILL_DAYS = 28
 
 # Learn overnight, off the hour, so it does not pile onto recorder's own purge.
 LEARN_HOUR, LEARN_MINUTE = 3, 17
@@ -74,6 +76,19 @@ class Learner:
         if (stored := await self._store.async_load()) is not None:
             self._data = stored
 
+    def _backfill_days(self) -> int:
+        """Return how far back it is worth querying, in days.
+
+        Ask recorder rather than assuming: `purge_keep_days` is configurable,
+        and hard-coding 10 threw away three weeks of usable history from
+        anyone who had raised it. `0` means "never purge", so fall back to the
+        ceiling rather than to nothing.
+        """
+        keep_days = getattr(get_instance(self.hass), "keep_days", 0) or 0
+        if keep_days <= 0:
+            return MAX_BACKFILL_DAYS
+        return min(keep_days, MAX_BACKFILL_DAYS)
+
     async def async_update(self) -> None:
         """Fold every complete day we have not seen yet into the profile."""
         if not (entity_ids := self.entity_ids):
@@ -90,7 +105,7 @@ class Learner:
 
         today = dt_util.start_of_local_day()
         query_start = dt_util.start_of_local_day(
-            today - dt.timedelta(days=MAX_BACKFILL_DAYS)
+            today - dt.timedelta(days=self._backfill_days())
         )
         # Never fold the oldest day we can query. It sits on the recorder's
         # purge horizon, where the row that last turned something off may

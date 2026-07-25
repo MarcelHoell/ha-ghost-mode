@@ -9,8 +9,18 @@ other HA project is `home-assistant-navimow` (a fork); same conventions apply.
 
 ## Layout
 
-The integration lives in `custom_components/ghost_mode/`; `tests/` holds
-dependency-free self-checks (plain `python3 tests/test_*.py`, no pytest, no HA).
+The integration lives in `custom_components/ghost_mode/`. Tests come in two
+layers:
+
+- `tests/test_rhythm.py` — the maths, **no pytest and no Home Assistant**.
+  Run it with `python3 tests/test_rhythm.py`. Keep it that way.
+- `tests/test_integration.py` — everything that needs a real `hass`, via
+  `pytest-homeassistant-custom-component`. **Requires Python 3.13**; HA 2025.8
+  dropped 3.12, so this layer cannot run on a 3.12 interpreter at all. CI
+  (`.github/workflows/validate.yml`) is where it actually gets verified.
+
+Fixture ordering in `tests/conftest.py` is load-bearing: `recorder_db_url`
+asserts no `hass` exists yet, so an autouse fixture requests it first.
 
 | File | Role |
 | --- | --- |

@@ -7,6 +7,20 @@ on:
     - cron: "0 6 * * 1"
 
 jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # Home Assistant 2025.8 (our floor) needs 3.13; the test harness
+          # pulls a matching core.
+          python-version: "3.13"
+      - run: pip install pytest-homeassistant-custom-component
+      # The maths self-check must keep working with no Home Assistant at all.
+      - run: python tests/test_rhythm.py
+      - run: pytest -q
+
   hassfest:
     runs-on: ubuntu-latest
     steps:

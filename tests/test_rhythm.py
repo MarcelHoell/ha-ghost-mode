@@ -17,6 +17,7 @@ from rhythm import (  # noqa: E402
     day_grid,
     empty_week,
     fold,
+    is_known,
     is_on,
     sparkline,
     varies,
@@ -61,6 +62,51 @@ def test_grid_is_reusable_across_days_in_one_range():
     changes = [(DAY, "on"), (tuesday, "off")]
     assert day_grid(changes, DAY) == [1.0] * SLOTS
     assert day_grid(changes, tuesday) == [0.0] * SLOTS
+
+
+def test_unavailable_is_unknown_not_off():
+    assert is_known("on") and is_known("off") and is_known("closed")
+    assert not is_known("unavailable") and not is_known("unknown")
+    assert not is_on("unavailable"), "unknown still must not count as on"
+
+
+def test_grid_ignores_time_the_entity_was_unavailable():
+    # Offline for the first half of the 20:00 slot, on for the second half.
+    changes = [
+        (DAY, "unavailable"),
+        (DAY + dt.timedelta(hours=20, minutes=15), "on"),
+        (DAY + dt.timedelta(hours=20, minutes=45), "off"),
+    ]
+    grid = day_grid(changes, DAY)
+    assert grid[39] is None, "a wholly-offline slot is no evidence, not darkness"
+    # 20:00-20:15 offline, 20:15-20:30 on: on for all the time we know about.
+    assert grid[40] == 1.0
+    # 20:30-20:45 on, 20:45-21:00 off: both known, so a plain half.
+    assert grid[41] == 0.5
+    assert grid[42] == 0.0, "and known-off is still off"
+
+
+def test_fold_leaves_unknown_slots_alone():
+    established = [1.0] * SLOTS
+    blackout = [None] * SLOTS
+    assert fold(established, blackout) == established, (
+        "a device offline all day must not erase a real habit"
+    )
+
+    # Mixed: one known-off slot moves, the rest hold.
+    partial = [None] * SLOTS
+    partial[10] = 0.0
+    folded = fold(established, partial)
+    assert folded[10] == 1.0 - ALPHA
+    assert folded[11] == 1.0
+
+
+def test_first_sighting_treats_unknown_as_nothing_seen():
+    observed = [None] * SLOTS
+    observed[5] = 1.0
+    folded = fold(None, observed)
+    assert folded[5] == 1.0
+    assert folded[6] == 0.0, "no evidence has to start somewhere, and that is off"
 
 
 def test_grid_measures_duration_not_the_instant():

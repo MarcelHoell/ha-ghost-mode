@@ -32,7 +32,13 @@ SLOTS = 24 * 60 // SLOT_MINUTES
 # ponytail: a flat "not off" test instead of per-domain state machines. A cover
 # that is `open` and a media_player that is `playing` both mean the same thing
 # to someone watching the house.
-OFF_STATES = {"off", "closed", "idle", "standby", "unavailable", "unknown", ""}
+OFF_STATES = {"off", "closed", "idle", "standby"}
+
+# Not off — *unknown*. A Zigbee bulb that drops off the mesh for three days
+# tells us nothing about whether the room was lit; counting it as darkness
+# would train the profile hard toward "never on", which is the opposite of
+# what happened. These periods are left out of the average entirely.
+UNKNOWN_STATES = {"unavailable", "unknown", "none", ""}
 
 # How fast a new observation overwrites the old profile. 0.2 puts a weekday's
 # half-life at ~3 weeks of observations. Lower = steadier but slower to adapt
@@ -64,9 +70,14 @@ def sparkline(day: list[float] | None) -> str:
     )
 
 
+def is_known(state: str) -> bool:
+    """Return whether this state says anything about the house at all."""
+    return state.lower() not in UNKNOWN_STATES
+
+
 def is_on(state: str) -> bool:
     """Return whether this state string reads as 'on' to a passer-by."""
-    return state.lower() not in OFF_STATES
+    return is_known(state) and state.lower() not in OFF_STATES
 
 
 def varies(week: list[list[float] | None]) -> bool:
@@ -90,7 +101,7 @@ def empty_week() -> list[list[float] | None]:
 
 def day_grid(
     changes: list[tuple[dt.datetime, str]], day_start: dt.datetime
-) -> list[float] | None:
+) -> list[float | None] | None:
     """Measure what fraction of each half hour the entity was on.
 
     `changes` is that entity's state history over the whole queried range,
@@ -104,6 +115,10 @@ def day_grid(
     read as a solid half hour. Neither is true. Two minutes now stores as
     0.067, which replay can reproduce as a brief flick rather than a
     conspicuous half-hour block.
+
+    A slot is the fraction of its *known* time the entity was on. A slot with
+    no known time at all comes back as None, meaning "no evidence" — `fold`
+    leaves the stored value alone rather than pulling it toward darkness.
     """
     if not changes:
         return None
@@ -117,31 +132,47 @@ def day_grid(
         current = changes[idx][1]
         idx += 1
 
-    grid: list[float] = []
+    grid: list[float | None] = []
     for index in range(SLOTS):
         slot_start = day_start + slot * index
         slot_end = slot_start + slot
         on = dt.timedelta()
+        known = dt.timedelta()
         cursor = slot_start
 
         while idx < len(changes) and changes[idx][0] < slot_end:
             when, state = changes[idx]
-            if is_on(current):
-                on += when - cursor
+            if is_known(current):
+                known += when - cursor
+                if is_on(current):
+                    on += when - cursor
             cursor = when
             current = state
             idx += 1
 
-        if is_on(current):
-            on += slot_end - cursor
-        grid.append(on / slot)
+        if is_known(current):
+            known += slot_end - cursor
+            if is_on(current):
+                on += slot_end - cursor
+
+        grid.append(on / known if known else None)
     return grid
 
 
 def fold(
-    old: list[float] | None, observed: list[float], alpha: float = ALPHA
+    old: list[float] | None, observed: list[float | None], alpha: float = ALPHA
 ) -> list[float]:
-    """Blend one observed day into the running profile for that weekday."""
+    """Blend one observed day into the running profile for that weekday.
+
+    A `None` slot in `observed` means the entity was unavailable for that whole
+    half hour. There is nothing to learn from it, so the stored value stays put
+    — an offline device must not slowly erase a real habit.
+    """
     if old is None:
-        return list(observed)  # first sighting: trust it outright
-    return [o + alpha * (n - o) for o, n in zip(old, observed)]
+        # First sighting: trust it outright. Slots with no evidence start at
+        # zero, which is the only honest guess when nothing has been seen.
+        return [0.0 if value is None else value for value in observed]
+    return [
+        previous if value is None else previous + alpha * (value - previous)
+        for previous, value in zip(old, observed)
+    ]
