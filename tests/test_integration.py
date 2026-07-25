@@ -4,10 +4,13 @@
 `hass`: entity discovery, the config entry, the services, the sensor, the
 diagnostics dump and the storage cleanup.
 """
+import datetime as dt
+
 import pytest
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -17,6 +20,7 @@ from custom_components.ghost_mode.const import (
     DOMAIN,
     SIGNAL_PROFILE_UPDATED,
 )
+from custom_components.ghost_mode import learner as learner_module
 from custom_components.ghost_mode.discovery import ghostable_entities, parse_entity_ids
 
 
@@ -206,6 +210,43 @@ async def test_diagnostics_render_without_the_raw_floats(
     assert dump["rhythm"]["light.evening"]["Tue"] == "(never seen)"
 
 
+async def test_a_newly_included_entity_is_backfilled_not_left_behind(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """Un-excluding an entity, or installing one, must not start from zero.
+
+    The learner resumes from the last day it folded, so without special
+    handling a newcomer learns a single day while everything around it has a
+    full window — and stays wrong for weeks.
+    """
+    learner = hass.data[DOMAIN]["learner"]
+    _register(hass, "light.garden")
+    _register(hass, "light.established")
+
+    # Pretend we already folded everything up to yesterday for one of them.
+    learner.profile["light.established"] = [[1.0] * 48] + [None] * 6
+    learner._data["last_day"] = (
+        dt_util.start_of_local_day() - dt.timedelta(days=1)
+    ).date().isoformat()
+
+    folded_days: list[dt.datetime] = []
+    original = learner_module.day_grid
+
+    def _record(changes, day_start):
+        folded_days.append(day_start)
+        return original(changes, day_start)
+
+    learner_module.day_grid = _record
+    try:
+        await learner.async_update()
+    finally:
+        learner_module.day_grid = original
+
+    assert folded_days, "a newcomer must reopen the window, not return early"
+    span = (max(folded_days) - min(folded_days)).days
+    assert span >= 6, f"expected the whole window backfilled, got {span + 1} day(s)"
+
+
 async def test_backfill_respects_the_recorder_setting(
     hass: HomeAssistant, entry: MockConfigEntry
 ):
@@ -214,8 +255,6 @@ async def test_backfill_respects_the_recorder_setting(
 
     class _FakeRecorder:
         keep_days = 3
-
-    import custom_components.ghost_mode.learner as learner_module
 
     original = learner_module.get_instance
     try:

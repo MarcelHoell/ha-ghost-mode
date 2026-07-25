@@ -111,7 +111,10 @@ class Learner:
         # purge horizon, where the row that last turned something off may
         # already be gone — which makes the whole day read as on-from-midnight
         # for every entity at once. It is only good enough to carry state in.
-        start = dt_util.start_of_local_day(query_start + dt.timedelta(days=1, hours=1))
+        window_start = dt_util.start_of_local_day(
+            query_start + dt.timedelta(days=1, hours=1)
+        )
+        start = window_start
 
         if (last_day := self._data.get("last_day")) is not None:
             resume = dt_util.start_of_local_day(
@@ -119,7 +122,13 @@ class Learner:
             ) + dt.timedelta(days=1)
             start = max(start, resume)
 
-        if start >= today:
+        # Entities with nothing stored — just installed, or just un-excluded —
+        # get the whole window instead of only the days since the last run.
+        # Otherwise a light added today learns a single day while everything
+        # around it has nine, and stays wrong for weeks.
+        newcomers = set(entity_ids) - set(self.profile)
+
+        if start >= today and not newcomers:
             _LOGGER.info(
                 "Nothing to learn: everything up to %s is already folded in, and "
                 "today is not over yet",
@@ -143,9 +152,14 @@ class Learner:
 
         days = 0
         seen: set[str] = set()
-        day_start = start
+        day_start = window_start if newcomers else start
         while day_start < today:
             for entity_id, entity_changes in changes.items():
+                # Days before the resume point exist only to backfill the
+                # newcomers; folding them again for everyone else would count
+                # the same evening twice.
+                if day_start < start and entity_id not in newcomers:
+                    continue
                 if (grid := day_grid(entity_changes, day_start)) is None:
                     continue
                 week = self.profile.setdefault(entity_id, empty_week())
@@ -162,11 +176,12 @@ class Learner:
 
         if seen:
             _LOGGER.info(
-                "Learned %s day(s) of history for %s of %s entities, up to %s",
+                "Learned %s day(s) of history for %s of %s entities, up to %s%s",
                 days,
                 len(seen),
                 len(entity_ids),
                 self.last_day,
+                f" (backfilled {len(newcomers)} new)" if newcomers else "",
             )
         else:
             _LOGGER.warning(
