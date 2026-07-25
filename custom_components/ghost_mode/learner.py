@@ -178,6 +178,20 @@ class Learner:
             ", ".join(sorted(gone)),
         )
 
+    async def async_forget(self) -> None:
+        """Throw the whole profile away and learn it again from scratch.
+
+        Needed whenever a change to the maths invalidates what is stored: the
+        moving average would otherwise blend old and new meanings together for
+        weeks. Without this the only cure is deleting a hidden file by hand.
+        """
+        entities = len(self.profile)
+        self._data = {"last_day": None, "entities": {}}
+        await self._store.async_remove()
+        async_dispatcher_send(self.hass, SIGNAL_PROFILE_UPDATED)
+        _LOGGER.info("Forgot the profile (%s entities); relearning now", entities)
+        await self.async_update()
+
     async def async_safe_update(self, _arg: Any = None) -> None:
         """Run a fold without ever taking the integration down with it."""
         try:

@@ -37,6 +37,10 @@
     "learn_now": {
       "name": "Learn now",
       "description": "Read recorder history into the learned profile straight away, instead of waiting for the nightly run."
+    },
+    "forget": {
+      "name": "Forget everything",
+      "description": "Throw the learned profile away and rebuild it from whatever recorder history still exists. Use after an update changes how the profile is measured."
     }
   }
 }

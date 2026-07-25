@@ -64,6 +64,8 @@ solid half hour.
 
 ## Installation
 
+Needs **Home Assistant 2025.8 or newer** (`OptionsFlowWithReload`).
+
 Until it is in HACS, add it as a custom repository:
 
 1. HACS → ⋮ → **Custom repositories**
@@ -141,6 +143,10 @@ recorder:
 | Service | What it does |
 | --- | --- |
 | `ghost_mode.learn_now` | Folds available history in immediately, instead of waiting for the nightly run at 03:17. Useful right after install, or for checking it works. |
+| `ghost_mode.forget` | Throws the profile away and rebuilds it from whatever recorder history still exists. Use it when an update changes how the profile is measured — the moving average would otherwise blend the old and new meanings together for weeks. |
+
+Removing the integration deletes the stored profile too, so removing and
+re-adding it really does start over.
 
 ### Not exposed
 
@@ -169,16 +175,27 @@ JavaScript, nothing to install:
 ````yaml
 type: markdown
 content: |
+  {% set sensor = 'sensor.ghost_mode_learned_rhythm' %}
+  {% set rhythm = state_attr(sensor, 'rhythm') %}
+  {% if rhythm %}
   ### Learned rhythm
-  Last full day learned: **{{ state_attr('sensor.ghost_mode_learned_rhythm', 'last_learned_day') }}**
-  {% for entity, week in state_attr('sensor.ghost_mode_learned_rhythm', 'rhythm').items() %}
+  Last full day learned: **{{ state_attr(sensor, 'last_learned_day') }}**
+  {% for entity, week in rhythm.items() %}
   **{{ entity }}**
   ```text
        0h    3h    6h    9h    12h   15h   18h   21h
   {% for day, bars in week.items() %}{{ day }}  {{ bars }}
   {% endfor %}```
   {% endfor %}
+  {% else %}
+  ### Learned rhythm
+  _Nothing to draw yet._ Check the sensor exists and that the learner has run —
+  call `ghost_mode.learn_now`, then look at **Settings → System → Logs**.
+  {% endif %}
 ````
+
+The `{% if %}` matters: without it, a missing sensor makes the card throw
+`UndefinedError: 'None' has no attribute 'items'` rather than saying so.
 
 Which draws:
 
@@ -232,6 +249,10 @@ logger:
   logs:
     custom_components.ghost_mode: debug
 ```
+
+To start over completely, call **`ghost_mode.forget`**. It deletes the profile
+and immediately relearns from recorder history — no shell, no hunting for
+hidden files.
 
 The profile itself lives at `.storage/ghost_mode.profile` in your config
 directory, but note that `.storage` is hidden from the File Editor and Samba

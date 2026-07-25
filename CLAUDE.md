@@ -16,7 +16,7 @@ dependency-free self-checks (plain `python3 tests/test_*.py`, no pytest, no HA).
 | --- | --- |
 | `const.py` | `DOMAIN`, `CONF_EXCLUDE` |
 | `manifest.json` | domain, version, `iot_class: calculated`, `dependencies: [recorder]`, no requirements |
-| `__init__.py` | entry setup/unload, `ghost_mode.learn_now` service, forwards to `switch` |
+| `__init__.py` | entry setup/unload, `learn_now` + `forget` services, `async_remove_entry` deletes the store, forwards to platforms |
 | `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for the exclude list |
 | `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity` |
 | `sensor.py` | `sensor.ghost_mode_learned_rhythm` — sparklines in an attribute so a plain markdown card can draw them. `_unrecorded_attributes` keeps it out of the recorder |
@@ -62,6 +62,16 @@ sterilisation" switch is the motivating real-world case.
 
 Options changes reload the entry via `OptionsFlowWithReload`. Do **not** add a
 config-entry update listener; HA forbids combining the two.
+
+**Minimum HA is 2025.8.0**, set in `hacs.json`. `OptionsFlowWithReload` landed
+in exactly that release (verified against the tagged sources, not guessed);
+`_unrecorded_attributes` is older. Bump the floor whenever a newer API is used
+— a custom integration has no other way to refuse an old core, and the failure
+is an ImportError at load rather than a message.
+
+Any change to what a stored float *means* invalidates every profile in the
+wild. The EMA would blend the old and new meanings for weeks, so ship such a
+change together with a note to call `ghost_mode.forget`.
 
 ## Roadmap (not built yet)
 
