@@ -9,7 +9,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "custom_components" / "ghost_mode"))
 
-from rhythm import ALPHA, SLOTS, day_grid, empty_week, fold, is_on  # noqa: E402
+from rhythm import (  # noqa: E402
+    ALPHA,
+    SLOTS,
+    WEEKDAYS,
+    day_grid,
+    empty_week,
+    fold,
+    is_on,
+    sparkline,
+)
 
 DAY = dt.datetime(2026, 7, 20)  # a Monday
 
@@ -70,6 +79,23 @@ def test_fold_trusts_the_first_sighting_then_eases():
     for _ in range(50):
         value = fold([value], [0.0])[0]
     assert 0.0 <= value < 0.01
+
+
+def test_sparkline_reads_as_the_day():
+    assert sparkline(None) == "(never seen)"
+    assert sparkline([0.0] * SLOTS) == "·" * SLOTS
+    assert sparkline([1.0] * SLOTS) == "█" * SLOTS, "1.0 must not index off the end"
+    assert sparkline([0.5] * SLOTS) == "▪" * SLOTS
+    assert len(sparkline([0.0] * SLOTS)) == SLOTS, "one character per slot"
+    # A morning-only day should be readable at a glance.
+    assert sparkline(day_grid([(DAY, "off"), (DAY + dt.timedelta(hours=8), "on")], DAY)) == (
+        "·" * 16 + "█" * 32
+    )
+
+
+def test_weekdays_line_up_with_python():
+    assert len(WEEKDAYS) == 7
+    assert WEEKDAYS[DAY.weekday()] == "Mon", "index 0 must be Monday, as weekday() says"
 
 
 def test_empty_week_has_seven_unknown_days():

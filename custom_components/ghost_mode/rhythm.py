@@ -21,6 +21,19 @@ OFF_STATES = {"off", "closed", "idle", "standby", "unavailable", "unknown", ""}
 ALPHA = 0.2
 
 
+WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+# Coarse enough to read at a glance in a diagnostics dump: off / sometimes / on.
+BARS = "·▪█"
+
+
+def sparkline(day: list[float] | None) -> str:
+    """Render one weekday as 48 half-hour characters, midnight first."""
+    if day is None:
+        return "(never seen)"
+    return "".join(BARS[min(len(BARS) - 1, int(value * len(BARS)))] for value in day)
+
+
 def is_on(state: str) -> bool:
     """Return whether this state string reads as 'on' to a passer-by."""
     return state.lower() not in OFF_STATES

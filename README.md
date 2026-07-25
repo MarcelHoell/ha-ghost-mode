@@ -136,6 +136,44 @@ These are constants in the source, not settings. Change them there if you must:
 acts on it yet — replay is not built. Learning happens regardless of whether
 the switch is on.
 
+## Seeing what it learned
+
+**Settings → Devices & Services → Ghost Mode → ⋮ → Download diagnostics.**
+
+The dump renders each entity's week as one line per weekday, one character per
+half hour, starting at local midnight — `·` off, `▪` sometimes, `█` reliably
+on. The raw values are underneath it.
+
+```text
+light.living_room
+  Mon ·············████·················████████████··
+  Tue ··············▪▪▪▪▪·····························
+  Sat (never seen)
+```
+
+That is a light used in the morning and again all evening, on a home that has
+not been observed on a Saturday yet.
+
+It also reports `discovered_but_unlearned` — entities Ghost Mode can see but
+has no history for. A long list there usually means recorder is excluding them.
+
+### If it looks like nothing happened
+
+The learner only folds in **complete** days, so calling `ghost_mode.learn_now`
+twice on the same day does nothing the second time — it logs why. To see that,
+turn on debug logging: **Settings → Devices & Services → Ghost Mode → Enable
+debug logging**, or
+
+```yaml
+logger:
+  logs:
+    custom_components.ghost_mode: debug
+```
+
+The profile itself lives at `.storage/ghost_mode.profile` in your config
+directory, but note that `.storage` is hidden from the File Editor and Samba
+addons by default. Prefer the diagnostics download.
+
 ## Development
 
 ```text
