@@ -108,6 +108,31 @@ It won't fight your automations — one command per entity per half hour, so if 
 motion automation switches a replayed light back off, it stays off. And it
 never learns from itself: days it ran are skipped by the learner.
 
+### A card to control it
+
+Nothing extra to install — replay is part of the integration. The usual setup
+is to leave the switch **on** permanently and let the alarm decide, so the
+switch means "Ghost Mode may act" and the alarm means "the house is empty".
+
+```yaml
+type: entities
+title: Ghost Mode
+entities:
+  - entity: switch.ghost_mode
+    name: Enabled
+  - entity: alarm_control_panel.home
+    name: Alarm
+  - entity: sensor.ghost_mode_learned_rhythm
+    name: Entities with a rhythm
+  - type: attribute
+    entity: sensor.ghost_mode_learned_rhythm
+    attribute: last_learned_day
+    name: Last day learned
+```
+
+Swap `alarm_control_panel.home` for your own panel. Note this shows the
+*conditions* for replay, not whether it is switching anything at this moment.
+
 ## Seeing what it learned
 
 ### On a dashboard
