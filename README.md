@@ -13,58 +13,30 @@ behaves, not dumb on/off timers.
 </div>
 
 > [!WARNING]
-> **Alpha.** Ghost Mode learns your home's rhythm today, but does not replay it
-> yet — nothing is switched on your behalf. Installing it is safe and
-> read-only.
+> **Alpha.** Ghost Mode learns *and* replays — it will switch real lights in
+> your house. It only does that while `switch.ghost_mode` is on and your alarm
+> says away. Leave the switch off and it stays read-only.
 
 ---
 
 ## The idea
 
 Classic presence simulation flips a few lights on a fixed timer — obvious to
-anyone watching for a few evenings. Ghost Mode instead **learns the real
-rhythm of your home** from history (which lights, when the covers move, when
-the TV runs) and **replays it with natural variation** while you are away, so
-the pattern looks genuinely occupied.
+anyone watching for a few evenings. Ghost Mode learns the **real rhythm of your
+home** from history: which lights, when the covers move, when the TV runs. Then
+it replays that with natural variation while you are away.
 
-## Planned behaviour
+1. **Learn** — from recorder history. Nothing to configure, nothing to record.
+2. **Arm** — when the switch is on *and* the alarm says away.
+3. **Replay** — a realistic evening, at slightly different times each day.
+4. **Yield** — stop the moment someone comes home, and tidy up after itself.
 
-1. **Learn** — read the daily on/off rhythm of your lights, switches, covers
-   and media players out of the recorder history. *(built)*
-2. **Arm** — when `switch.ghost_mode` is on and the home is away (e.g. the
-   alarm is `armed_away`), start replaying.
-3. **Replay** — reproduce a realistic evening with jitter on times, not a
-   fixed schedule.
-4. **Yield** — hand control straight back the moment someone actually comes
-   home.
+## Requirements
 
-## Current state (0.2.0)
-
-- Installable via the UI (config flow), single instance.
-- Creates `switch.ghost_mode` (restores across restarts) so automations and
-  the alarm can already flip it.
-- **Learns.** Every night it reads the days it has not seen out of the recorder
-  and folds them into a per-weekday, half-hourly profile of what was on. It
-  finds the entities itself from the entity registry — no picker to fill in,
-  and config/diagnostic entities are skipped.
-- Nothing listens to state changes: the recorder is already the recorder.
-- Service `ghost_mode.learn_now` folds history in immediately instead of
-  waiting for the nightly run.
-- **No replay yet** — the profile is collected but nothing acts on it.
-
-Because the recorder purges old rows (`purge_keep_days`, 10 by default), the
-profile is *accumulated* with a moving average rather than re-derived. Give it
-a few weeks before it knows your evenings.
-
-Each half-hour slot stores **how much of that half hour the entity was on**,
-not whether it happened to be on at the boundary. That is what makes
-motion-triggered lights work: a hall light on for two minutes stores as `0.067`
-and stays a brief flick, instead of being missed entirely or inflated into a
-solid half hour.
+- Home Assistant **2025.8** or newer
+- The **recorder** (on by default). Ghost Mode reads it and nothing else.
 
 ## Installation
-
-Needs **Home Assistant 2025.8 or newer** (`OptionsFlowWithReload`).
 
 Until it is in HACS, add it as a custom repository:
 
@@ -73,118 +45,74 @@ Until it is in HACS, add it as a custom repository:
 3. Install, restart Home Assistant.
 4. **Settings → Devices & Services → + Add Integration → Ghost Mode**.
 
+There is nothing to fill in. It finds your lights, switches, covers and media
+players by itself and starts learning tonight.
+
 ## Configuration
 
-**There is almost nothing to configure.** The setup dialog has no fields —
-confirm it and Ghost Mode starts learning on the next nightly run. Only one
-instance can be added.
+**Settings → Devices & Services → Ghost Mode → Configure.**
 
-That is deliberate: an entity picker is a form you fill in once, get wrong, and
-never revisit. Ghost Mode reads the entity registry instead, so the thing you
-already curate in Home Assistant is the thing that steers it.
+| Option | What it does |
+| --- | --- |
+| **Alarm that means the house is empty** | Replay runs only while this is `armed_away` or `armed_vacation`, and stops the moment it is disarmed. Leave empty to let the switch decide on its own. |
+| **Replay may switch these** | Which kinds of thing replay may command. Defaults to lights and switches. Tick **covers** or **media players** deliberately — a cover physically moves and a television really powers up. |
+| **Never learn or replay these** | Entities to ignore completely. |
+| **Paste entity IDs to exclude** | Bulk version of the above — paste a list instead of clicking each one. |
 
-### What gets learned
+### What gets found automatically
 
-Entities in these domains: `light`, `switch`, `fan`, `media_player`, `cover`,
-`input_boolean` — anything whose on/off state is visible from the street.
+Lights, switches, fans, covers, media players and input booleans — anything
+whose on/off state is visible from the street.
 
-Skipped automatically:
+Skipped without asking: disabled and hidden entities, anything Home Assistant
+marks as a config or diagnostic entity (all those "LED indicator" and "child
+lock" switches), members of a group when the group itself is learned, and Ghost
+Mode's own entities.
 
-- **Disabled** and **hidden** entities.
-- Anything with an **entity category** of config or diagnostic — the "LED
-  indicator", "child lock" and "restart" switches that ship with most Zigbee
-  and Tasmota devices. These are what make a naive "all switches" list useless.
-- **Group members**, when the group itself is learned. A light group and its
-  three bulbs are one light to a passer-by, so only the group is kept.
-- **Ghost Mode's own entities**, so it can never learn from its own replay.
+### The exclusion list matters
 
-So to exclude something, hide or disable it in **Settings → Devices & Services
-→ Entities**. To include a new device, do nothing — it is picked up on the next
-run. Entities that leave the registry are dropped from the profile.
+Most homes have several entities for one physical thing — a television is
+easily eight, a room of Hue bulbs five. Learning the same lamp five times
+doesn't improve anything, and replaying it means five commands to one bulb.
 
-### The one option
-
-**Settings → Devices & Services → Ghost Mode → Configure** takes a list of
-entities to ignore outright.
-
-Two ways in. The picker is fine for one or two. For a real list — one
-television is easily eight entities — use the **paste box** underneath and drop
-in entity IDs, one per line or comma separated:
+Use the **paste box** and drop in a list, one per line or comma separated:
 
 ```text
-light.buro_links, light.buro_rechts
-media_player.55oled706_12
-switch.robby_uv_sterilization
+light.office_left, light.office_right
+media_player.tv_screen
+switch.vacuum_uv_lamp
 ```
 
-Anything shaped like an entity ID is picked up, so pasting a bulleted or
-quoted list works too. The box is a bulk-add: its contents merge into the list
-above and are not kept, so reopening the form shows one list rather than two.
+Anything shaped like an entity ID is picked up, so pasting a bulleted or quoted
+list works too. It merges into the list above and is not kept, so reopening the
+form shows one list rather than two.
 
-It exists because the entity-category filter only works when an integration
-bothers to set it. Some do not: a robot vacuum's "UV sterilisation" and
-"auto drying" switches are permanently on, invisible from outside, and get
-learned as constantly-lit — exactly the sort of thing to drop here. Changing
-the list reloads the integration, and the excluded entities disappear from the
-profile on the next run.
+Permanently-on device settings — a robot vacuum's UV lamp, say — are the other
+thing worth excluding. Home Assistant doesn't always mark them as settings, so
+Ghost Mode can't tell them from a real lamp.
 
-### Recorder
+## Replay
 
-The learner reads recorder history and nothing else, so recorder settings
-decide what it can see. Two matter:
+Replay runs only while **both** are true: the switch is on, and the alarm says
+away. Learning happens either way, regardless of the switch.
 
-- **`purge_keep_days`** (default 10) — the learner never looks further back
-  than this. It does not need to: each night's reading is folded into a
-  running average, so the profile outlives the rows it came from.
-- **`exclude:`** filters — an excluded entity leaves no rows, and Ghost Mode
-  learns nothing about it. It is *not* treated as "always off".
+It is **not a schedule.** A light that was on for 60% of your observed Tuesday
+evenings comes on about 60% of Tuesdays — not every Tuesday at the same minute.
+Times drift by up to 20 minutes, so the house doesn't light up all at once.
 
-If you have trimmed recorder down, make sure the entities you want simulated
-are still recorded:
+**Coming home:** the moment the alarm disarms or the switch goes off, replay
+stops and undoes **its own changes only**. Anything you or another automation
+changed meanwhile is left alone.
 
-```yaml
-recorder:
-  include:
-    domains:
-      - light
-      - switch
-      - cover
-      - media_player
-```
-
-### Services
-
-| Service | What it does |
-| --- | --- |
-| `ghost_mode.learn_now` | Folds available history in immediately, instead of waiting for the nightly run at 03:17. Useful right after install, or for checking it works. |
-| `ghost_mode.forget` | Throws the profile away and rebuilds it from whatever recorder history still exists. Use it when an update changes how the profile is measured — the moving average would otherwise blend the old and new meanings together for weeks. |
-
-Removing the integration deletes the stored profile too, so removing and
-re-adding it really does start over.
-
-### Not exposed
-
-These are constants in the source, not settings. Change them there if you must:
-
-| Knob | File | Default |
-| --- | --- | --- |
-| `ALPHA` — how fast new days overwrite old habits | `rhythm.py` | `0.2` (~3 week half-life) |
-| `SLOT_MINUTES` — profile resolution | `rhythm.py` | `30` |
-| `GHOSTABLE_DOMAINS` | `discovery.py` | the six domains above |
-| `LEARN_HOUR`, `LEARN_MINUTE` | `learner.py` | `03:17` |
-
-`switch.ghost_mode` can be toggled today and survives restarts, but nothing
-acts on it yet — replay is not built. Learning happens regardless of whether
-the switch is on.
+It won't fight your automations — one command per entity per half hour, so if a
+motion automation switches a replayed light back off, it stays off. And it
+never learns from itself: days it ran are skipped by the learner.
 
 ## Seeing what it learned
 
 ### On a dashboard
 
-`sensor.ghost_mode_learned_rhythm` carries the whole profile. Its state is how
-many entities have a rhythm worth showing; the `rhythm` attribute holds the
-drawing. Paste this into a **Markdown card** — no custom card, no
-JavaScript, nothing to install:
+Add a **Markdown card** — no custom card, nothing to install:
 
 ````yaml
 type: markdown
@@ -203,110 +131,84 @@ content: |
   {% endfor %}
   {% else %}
   ### Learned rhythm
-  _Nothing to draw yet._ Check the sensor exists and that the learner has run —
-  call `ghost_mode.learn_now`, then look at **Settings → System → Logs**.
+  _Nothing to draw yet._ Call `ghost_mode.learn_now`, then check
+  **Settings → System → Logs**.
   {% endif %}
 ````
-
-The `{% if %}` matters: without it, a missing sensor makes the card throw
-`UndefinedError: 'None' has no attribute 'items'` rather than saying so.
 
 Which draws:
 
 ```text
 **light.wohnzimmer**
      0h    3h    6h    9h    12h   15h   18h   21h
-Mon  ·········································██████·
-Tue  ··········································████··
+Mon  ········································▃█████▁·
+Tue  ············································▁█▃·
 Wed  (never seen)
-Thu  ········································██████··
 ```
 
-Entities that draw as a flat line — off all week, or a device setting that is
-on all week — are left out of the attribute. They stay in the profile; they
-just make no picture. That keeps the card readable and the attribute small.
+### How to read it
 
-### As a file, for bug reports
+One row per weekday, one character per half hour, midnight on the left. The
+character says **how much of that half hour the thing was on**:
 
-**Settings → Devices & Services → Ghost Mode → ⋮ → Download diagnostics.**
+| | |
+| --- | --- |
+| `·` | never on |
+| `▁` | briefly — a couple of minutes |
+| `▃` `▅` | a third, to three-quarters |
+| `█` | the whole half hour |
+| `(never seen)` | that weekday hasn't been observed yet |
 
-The dump renders each entity's week as one line per weekday, one character per
-half hour, starting at local midnight. The character says how much of that half
-hour the entity was on — `·` none, `▁` briefly, `▃`/`▅` partly, `█` all of it.
+So the Monday row above reads: living room light on around 20:00, solid until
+23:00, off by 23:30.
 
-```text
-light.living_room
-  Mon ·············████·················████████████··
-  Tue ··············▪▪▪▪▪·····························
-  Sat (never seen)
-```
+Each row is an **average over every time that weekday has been seen**, not one
+particular day. Entities that never vary — off all week, or a setting that's on
+all week — are left out of the card entirely.
 
-That is a light used in the morning and again all evening, on a home that has
-not been observed on a Saturday yet.
+### As a file
 
-It also reports `discovered_but_unlearned` — entities Ghost Mode can see but
-has no history for. A long list there usually means recorder is excluding them.
+**Settings → Devices & Services → Ghost Mode → ⋮ → Download diagnostics** gives
+you the same picture as a file, plus a list of entities Ghost Mode can see but
+has no history for. That's the one to attach to a bug report.
 
-The dump deliberately omits the raw numbers: 336 floats per entity is the same
-information at fifty times the size. Read `.storage/ghost_mode.profile` if you
-need exact values.
+## Services
 
-### If it looks like nothing happened
+| Service | What it does |
+| --- | --- |
+| `ghost_mode.learn_now` | Read history in now, instead of waiting for the nightly run at 03:17. |
+| `ghost_mode.forget` | Throw the profile away and rebuild it from scratch. Use after an update changes how the profile is measured. |
 
-The learner only folds in **complete** days, so calling `ghost_mode.learn_now`
-twice on the same day does nothing the second time — it logs why. To see that,
-turn on debug logging: **Settings → Devices & Services → Ghost Mode → Enable
-debug logging**, or
+Removing the integration deletes the stored profile too, so removing and
+re-adding really does start over.
 
-```yaml
-logger:
-  logs:
-    custom_components.ghost_mode: debug
-```
+## If something looks wrong
 
-To start over completely, call **`ghost_mode.forget`**. It deletes the profile
-and immediately relearns from recorder history — no shell, no hunting for
-hidden files.
+**Nothing appears on the card.** The profile only fills in after the learner has
+run once. Call `ghost_mode.learn_now`, then check **Settings → System → Logs**
+and filter for `ghost_mode` — it says plainly whether it learned, found no
+history, or failed.
 
-The profile itself lives at `.storage/ghost_mode.profile` in your config
-directory, but note that `.storage` is hidden from the File Editor and Samba
-addons by default. Prefer the diagnostics download.
+**"Nothing to learn" in the log.** Expected. Only *complete* days are learned,
+so a second run on the same day has nothing to do.
+
+**A row is blank on one weekday.** That weekday hasn't been observed yet, or you
+were out. A fresh profile can be confidently wrong about a day you happened to
+be away — it corrects itself over a few weeks.
+
+**Give it time.** Recorder only keeps about ten days, so the profile is built up
+gradually rather than read in one go. Expect a couple of weeks before it really
+knows your evenings.
 
 ## Development
 
-```text
-custom_components/ghost_mode/
-├── __init__.py      entry setup / unload, the learn_now service
-├── config_flow.py   single-instance UI setup + the exclude option
-├── switch.py        the master on/off switch
-├── sensor.py        the learned rhythm, for a markdown card to draw
-├── discovery.py     finds switchable entities in the entity registry
-├── rhythm.py        the pure logic — sampling, blending, group collapsing
-├── learner.py       nightly fold of recorder history into that profile
-├── diagnostics.py   the downloadable "what did it learn" dump
-├── const.py         DOMAIN, option keys
-├── services.yaml
-└── manifest.json
-tests/
-└── test_rhythm.py   plain `python3 tests/test_rhythm.py`, no pytest
-```
-
-No dependencies, no build step. CI runs the tests, `hassfest` and HACS
-validation.
-
-Two test layers:
-
 ```bash
-python tests/test_rhythm.py                  # the maths, no Home Assistant
-pip install pytest-homeassistant-custom-component && pytest -q   # the rest
+python tests/test_rhythm.py    # the maths, no Home Assistant needed
+pip install pytest-homeassistant-custom-component && pytest -q
 ```
 
-`rhythm.py` deliberately imports nothing from Home Assistant, so its self-check
-runs on a bare interpreter. `tests/test_integration.py` needs a real `hass`,
-and therefore **Python 3.13** — Home Assistant 2025.8 does not support 3.12.
-Releases are automated by [release-please](https://github.com/googleapis/release-please)
-from Conventional Commits — merge the release PR and the version in
-`manifest.json` is bumped and tagged automatically.
+No dependencies, no build step. See [CLAUDE.md](CLAUDE.md) for how the
+internals fit together.
 
 ## Disclaimer
 

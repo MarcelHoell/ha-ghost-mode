@@ -24,15 +24,16 @@ asserts no `hass` exists yet, so an autouse fixture requests it first.
 
 | File | Role |
 | --- | --- |
-| `const.py` | `DOMAIN`, `CONF_EXCLUDE` |
+| `const.py` | `DOMAIN`, option keys, dispatcher signal names |
 | `manifest.json` | domain, version, `iot_class: calculated`, `dependencies: [recorder]`, no requirements |
 | `__init__.py` | entry setup/unload, `learn_now` + `forget` services, `async_remove_entry` deletes the store, forwards to platforms |
-| `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for the exclude list |
-| `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity` |
+| `config_flow.py` | single-instance UI flow (unique_id = DOMAIN) + `OptionsFlowWithReload` for alarm, drive-domains and exclusions |
+| `switch.py` | `switch.ghost_mode` master on/off, `RestoreEntity`. Publishes `SIGNAL_ENABLED` so replay reacts at once |
 | `sensor.py` | `sensor.ghost_mode_learned_rhythm` — sparklines in an attribute so a plain markdown card can draw them. `_unrecorded_attributes` keeps it out of the recorder |
 | `discovery.py` | entity-registry scan for switchable, user-facing entities |
-| `rhythm.py` | the pure logic — history → per-weekday half-hour grid, EMA blend, sparklines, group collapsing. **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare. Logic lands here purely to stay testable |
-| `learner.py` | recorder glue: nightly fold of unseen days into a `Store`d profile |
+| `rhythm.py` | the pure logic — sampling, EMA blend, sparklines, group collapsing, and the replay decision (`desired_on`, `stable_random`). **No HA imports**, keep it that way so `tests/test_rhythm.py` runs bare. Logic lands here purely to stay testable |
+| `learner.py` | recorder glue: nightly fold of unseen days into a `Store`d profile; records replayed days so they are never folded |
+| `replay.py` | drives the house while empty, reverts its own work on return |
 | `diagnostics.py` | downloadable dump; sparklines only, never the raw floats |
 
 Not named `profile.py` — that shadows a stdlib module.
@@ -83,24 +84,54 @@ Any change to what a stored float *means* invalidates every profile in the
 wild. The EMA would blend the old and new meanings for weeks, so ship such a
 change together with a note to call `ghost_mode.forget`.
 
-## Roadmap (not built yet)
+## How replay works
 
-1. An "away" trigger (default: an alarm `armed_away`) — currently nothing
-   consumes the profile.
-2. A replay coordinator that reproduces the profile with time jitter while the
-   switch is on and the home is away, and yields immediately on real presence.
-   It must not learn from its own output — tag or track the entities it drives.
+Active only when `hass.data[DOMAIN]["enabled"]` (written by the switch) **and**
+the configured alarm is in `AWAY_STATES`. No alarm configured → the switch
+alone decides; that is a deliberate fallback, not an oversight.
 
-Constraints replay will hit, worth designing for up front:
+Woken by three things: a five-minute `TICK`, the `SIGNAL_ENABLED` dispatcher
+from the switch, and a state listener on the alarm. The last two exist because
+coming home has to stop replay *now*, not within five minutes.
 
-- **Motion automations keep running while away.** Replaying a motion-driven
-  light means fighting the automation that turns it off after N minutes — or
-  being silently overridden. Short slot values (`< ~0.2`) mark exactly those
-  entities; treat them as brief flicks, and expect the light to go off on its
-  own without treating that as real presence.
+`desired_on()` in `rhythm.py` turns a stored float into a decision. It is a
+**probability, not a threshold** — 0.6 means on in roughly 60% of that slot's
+occurrences, which is what stops the same week repeating forever. Both the
+per-day time drift and the per-slot draw come from `stable_random()`, a hash of
+entity/date/slot, so the answer is identical on every tick within a slot. Using
+`random` here would make a 60% light flicker every five minutes.
+
+Three rules that are easy to break by accident:
+
+- **One command per entity per `SLOT_MINUTES`.** This is what keeps replay from
+  fighting a motion automation that switches its light straight back off.
+- **`cover` has no `turn_on`/`turn_off` service** — it registers
+  `open_cover`/`close_cover` only, so `homeassistant.turn_on` skips covers in
+  silence. Hence `_SERVICES` in `replay.py`.
+- **State listeners must not be plain lambdas.** An undecorated callable is run
+  in an executor thread, and scheduling loop work from there now raises. Pass
+  the coroutine (or a `@callback`) directly.
+
+Stand-down reverts only entities still in the state replay left them in;
+anything changed since belongs to somebody else. `async_unload_entry` stands
+down too, so a reload never abandons a lit house.
+
+`learner.note_replayed()` records each day replay ran, and the fold loop skips
+those days — otherwise the profile becomes a recording of its own output.
+
+## Roadmap
+
+Replay is built. What is still open:
+
+- **Sub-slot pulses.** A two-minute motion event replays as a full 30-minute
+  block, because the slot is the smallest unit replay can express. This is the
+  case most likely to argue with a motion automation.
 - **Duplicate entities for one device** (a TV as `media_player` + `switch` +
-  `light`) would fire several service calls at the same hardware. Group
+  `light`) still fire several commands at one piece of hardware. Group
   collapsing only catches real HA groups; the rest is the exclude option.
+- **A cold profile is confidently wrong** about any day the household happened
+  to be away, and replay has no notion of confidence — one observation is
+  treated exactly like twenty.
 
 ## Conventions
 
