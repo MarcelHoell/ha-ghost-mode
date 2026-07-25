@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.3.0...v0.4.0) (2026-07-25)
+
+
+### Features
+
+* add an option to exclude entities from learning ([532ba73](https://github.com/MarcelHoell/ha-ghost-mode/commit/532ba73b6322d7c058b3ecf3cb410fdb6f3f6591))
+
 ## [0.3.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.2.0...v0.3.0) (2026-07-25)
 
 
