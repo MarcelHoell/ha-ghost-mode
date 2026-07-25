@@ -15,6 +15,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ghost_mode.const import (
+    CONF_ALARM,
+    CONF_DRIVE,
     CONF_EXCLUDE,
     CONF_PASTE,
     DOMAIN,
@@ -252,6 +254,126 @@ async def test_a_newly_included_entity_is_backfilled_not_left_behind(
         assert not queries, "an ordinary run with nothing new must still return early"
     finally:
         learner_module.history.get_significant_states = original
+
+
+async def _arm(hass: HomeAssistant, entry: MockConfigEntry, alarm_state: str):
+    """Point replay at an alarm and set it, returning the coordinator."""
+    hass.config_entries.async_update_entry(
+        entry,
+        options={
+            CONF_ALARM: "alarm_control_panel.house",
+            CONF_DRIVE: ["light", "cover"],
+        },
+    )
+    await hass.async_block_till_done()
+    hass.states.async_set("alarm_control_panel.house", alarm_state)
+    await hass.async_block_till_done()
+    return hass.data[DOMAIN]["replay"]
+
+
+async def test_replay_needs_both_the_switch_and_the_alarm(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    replay = await _arm(hass, entry, "disarmed")
+
+    hass.data[DOMAIN]["enabled"] = False
+    assert replay.is_away() is False, "switch off, alarm disarmed"
+
+    hass.data[DOMAIN]["enabled"] = True
+    assert replay.is_away() is False, "switch on is not enough on its own"
+
+    hass.states.async_set("alarm_control_panel.house", "armed_away")
+    await hass.async_block_till_done()
+    assert replay.is_away() is True, "switch on and armed away"
+
+    hass.data[DOMAIN]["enabled"] = False
+    assert replay.is_away() is False, "armed away is not enough on its own"
+
+
+async def test_replay_switches_lights_and_opens_covers(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """Covers have no turn_on service, so they need their own call."""
+    replay = await _arm(hass, entry, "armed_away")
+    hass.data[DOMAIN]["enabled"] = True
+
+    calls: list[tuple[str, str, str]] = []
+
+    async def _record(call):
+        calls.append((call.domain, call.service, call.data["entity_id"]))
+
+    for domain, services in (("homeassistant", ("turn_on", "turn_off")),
+                             ("cover", ("open_cover", "close_cover"))):
+        for service in services:
+            hass.services.async_register(domain, service, _record)
+
+    hass.states.async_set("light.hall", "off")
+    hass.states.async_set("cover.blind", "closed")
+    replay.learner.profile["light.hall"] = [[1.0] * 48] * 7
+    replay.learner.profile["cover.blind"] = [[1.0] * 48] * 7
+    # A media player is learned but not in drive_domains, so it must be left be.
+    hass.states.async_set("media_player.tv", "off")
+    replay.learner.profile["media_player.tv"] = [[1.0] * 48] * 7
+
+    await replay.async_evaluate()
+    await hass.async_block_till_done()
+
+    assert ("homeassistant", "turn_on", "light.hall") in calls
+    assert ("cover", "open_cover", "cover.blind") in calls
+    assert not any("media_player" in entity for _, _, entity in calls)
+
+
+async def test_coming_home_undoes_only_replays_own_work(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    replay = await _arm(hass, entry, "armed_away")
+    hass.data[DOMAIN]["enabled"] = True
+
+    calls: list[tuple[str, str]] = []
+
+    async def _record(call):
+        calls.append((call.service, call.data["entity_id"]))
+
+    for service in ("turn_on", "turn_off"):
+        hass.services.async_register("homeassistant", service, _record)
+
+    hass.states.async_set("light.hall", "off")
+    hass.states.async_set("light.porch", "off")
+    replay.learner.profile["light.hall"] = [[1.0] * 48] * 7
+    replay.learner.profile["light.porch"] = [[1.0] * 48] * 7
+
+    await replay.async_evaluate()
+    await hass.async_block_till_done()
+    hass.states.async_set("light.hall", "on")  # replay's doing
+    hass.states.async_set("light.porch", "off")  # somebody turned it back off
+    await hass.async_block_till_done()
+
+    calls.clear()
+    hass.states.async_set("alarm_control_panel.house", "disarmed")
+    await hass.async_block_till_done()
+
+    assert ("turn_off", "light.hall") in calls, "revert what we switched on"
+    assert ("turn_off", "light.porch") not in calls, (
+        "somebody else changed it since; not ours to undo"
+    )
+
+
+async def test_replayed_days_are_never_learned_from(
+    hass: HomeAssistant, entry: MockConfigEntry
+):
+    """Otherwise the profile slowly becomes a recording of itself."""
+    learner = hass.data[DOMAIN]["learner"]
+    today = dt_util.now().date()
+
+    learner.note_replayed(today)
+    assert today.isoformat() in learner.replayed_days
+
+    learner.note_replayed(today)
+    assert learner.replayed_days.count(today.isoformat()) == 1, "no duplicates"
+
+    ancient = today - dt.timedelta(days=400)
+    learner.note_replayed(ancient)
+    assert ancient.isoformat() not in learner.replayed_days, "old entries drop out"
 
 
 async def test_backfill_respects_the_recorder_setting(

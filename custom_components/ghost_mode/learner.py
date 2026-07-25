@@ -18,7 +18,7 @@ from typing import Any
 
 from homeassistant.components.recorder import get_instance, history
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.start import async_at_started
@@ -65,6 +65,27 @@ class Learner:
         return ghostable_entities(
             self.hass, self.entry.options.get(CONF_EXCLUDE, [])
         )
+
+    @property
+    def replayed_days(self) -> list[str]:
+        """Return the days replay was driving the house, as ISO dates."""
+        return self._data.setdefault("replayed", [])
+
+    @callback
+    def note_replayed(self, day: dt.date) -> None:
+        """Record that replay drove the house today, so we never learn from it.
+
+        Folding a replayed day would teach Ghost Mode its own output, and the
+        profile would drift further from the real household every time it ran.
+        """
+        today = day.isoformat()
+        if today in self.replayed_days:
+            return
+        self.replayed_days.append(today)
+        # Keep only what the backfill window could still reach.
+        cutoff = (day - dt.timedelta(days=MAX_BACKFILL_DAYS + 1)).isoformat()
+        self._data["replayed"] = sorted(d for d in self.replayed_days if d >= cutoff)
+        self.hass.async_create_task(self._store.async_save(self._data))
 
     @property
     def last_day(self) -> str | None:
@@ -153,7 +174,15 @@ class Learner:
         days = 0
         seen: set[str] = set()
         day_start = window_start if newcomers else start
+        replayed = set(self.replayed_days)
         while day_start < today:
+            if day_start.date().isoformat() in replayed:
+                # Ghost Mode was driving the house that day. Learning from it
+                # would be learning from itself.
+                day_start = dt_util.start_of_local_day(
+                    day_start + dt.timedelta(days=1, hours=1)
+                )
+                continue
             for entity_id, entity_changes in changes.items():
                 # Days before the resume point exist only to backfill the
                 # newcomers; folding them again for everyone else would count

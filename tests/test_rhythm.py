@@ -17,8 +17,10 @@ from rhythm import (  # noqa: E402
     day_grid,
     empty_week,
     fold,
+    desired_on,
     is_known,
     is_on,
+    stable_random,
     sparkline,
     varies,
 )
@@ -239,6 +241,64 @@ def test_nested_groups_keep_only_the_outermost():
 def test_no_groups_changes_nothing():
     candidates = {"light.a", "light.b"}
     assert collapse_groups(candidates, {}) == candidates
+
+
+def _week(day_values):
+    """A week where Monday is the given 48 values and the rest are unseen."""
+    return [day_values] + [None] * 6
+
+
+def test_replay_is_certain_at_the_extremes():
+    at = DAY.replace(hour=20)
+    assert desired_on("light.a", _week([1.0] * SLOTS), at, jitter_minutes=0) is True
+    assert desired_on("light.a", _week([0.0] * SLOTS), at, jitter_minutes=0) is False
+
+
+def test_replay_says_nothing_about_an_unseen_weekday():
+    tuesday = DAY + dt.timedelta(days=1)
+    assert desired_on("light.a", _week([1.0] * SLOTS), tuesday) is None
+
+
+def test_replay_holds_its_answer_steady_within_a_slot():
+    """A 60% light must simply be on, not flicker every tick."""
+    week = _week([0.6] * SLOTS)
+    answers = {
+        desired_on("light.a", week, DAY.replace(hour=20, minute=m), jitter_minutes=0)
+        for m in (0, 3, 11, 27)
+    }
+    assert len(answers) == 1, "the same slot must always give the same answer"
+
+
+def test_replay_turns_a_probability_into_frequency_over_time():
+    """0.25 should come on about a quarter of the time, not never or always."""
+    week = _week([0.25] * SLOTS)
+    days = [DAY + dt.timedelta(days=7 * n) for n in range(60)]  # 60 Mondays
+    on = sum(
+        bool(desired_on("light.a", week, d.replace(hour=20), jitter_minutes=0))
+        for d in days
+    )
+    assert 5 < on < 35, f"expected roughly 15 of 60, got {on}"
+
+
+def test_replay_jitter_moves_the_edges_without_moving_the_middle():
+    # On 08:00-20:00. Deep inside the block every entity agrees...
+    week = _week([1.0 if 16 <= i < 40 else 0.0 for i in range(SLOTS)])
+    midday = DAY.replace(hour=13)
+    assert all(
+        desired_on(f"light.{n}", week, midday) for n in range(20)
+    ), "jitter must not punch holes in the middle of a solid block"
+
+    # ...but at the edge they must not all switch on the same minute.
+    edge = DAY.replace(hour=8)
+    assert len({desired_on(f"light.{n}", week, edge) for n in range(20)}) == 2
+
+
+def test_stable_random_is_stable_and_spread():
+    assert stable_random("a", 1) == stable_random("a", 1)
+    assert stable_random("a", 1) != stable_random("a", 2)
+    values = [stable_random("light.x", n) for n in range(200)]
+    assert all(0.0 <= v < 1.0 for v in values)
+    assert 0.35 < sum(values) / len(values) < 0.65, "should not be lopsided"
 
 
 def test_empty_week_has_seven_unknown_days():

@@ -5,7 +5,14 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlowWithReload
 from homeassistant.helpers import selector
 
-from .const import CONF_EXCLUDE, CONF_PASTE, DOMAIN
+from .const import (
+    CONF_ALARM,
+    CONF_DRIVE,
+    CONF_EXCLUDE,
+    CONF_PASTE,
+    DEFAULT_DRIVE,
+    DOMAIN,
+)
 from .discovery import GHOSTABLE_DOMAINS, parse_entity_ids
 
 
@@ -49,14 +56,38 @@ class GhostModeOptionsFlow(OptionsFlowWithReload):
             # reopening the form shows one list rather than two.
             excluded = set(user_input.get(CONF_EXCLUDE, []))
             excluded |= parse_entity_ids(user_input.get(CONF_PASTE, ""))
-            return self.async_create_entry(data={CONF_EXCLUDE: sorted(excluded)})
+            options = {
+                CONF_EXCLUDE: sorted(excluded),
+                CONF_DRIVE: user_input.get(CONF_DRIVE, list(DEFAULT_DRIVE)),
+            }
+            if alarm := user_input.get(CONF_ALARM):
+                options[CONF_ALARM] = alarm
+            return self.async_create_entry(data=options)
 
-        current = self.config_entry.options.get(CONF_EXCLUDE, [])
+        options = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_EXCLUDE, default=current): selector.EntitySelector(
+                    vol.Optional(
+                        CONF_ALARM,
+                        description={"suggested_value": options.get(CONF_ALARM)},
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain="alarm_control_panel")
+                    ),
+                    vol.Optional(
+                        CONF_DRIVE,
+                        default=list(options.get(CONF_DRIVE, DEFAULT_DRIVE)),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=sorted(GHOSTABLE_DOMAINS),
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_EXCLUDE, default=options.get(CONF_EXCLUDE, [])
+                    ): selector.EntitySelector(
                         selector.EntitySelectorConfig(
                             domain=sorted(GHOSTABLE_DOMAINS), multiple=True
                         )

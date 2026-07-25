@@ -6,6 +6,52 @@ on its own. `learner.py` and `discovery.py` are the glue that feed it.
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
+
+# How far a replayed transition may drift from the learned time. Without this
+# the house switches on at exactly 20:00 every evening, which is the tell that
+# gives away every timer-based presence simulation.
+JITTER_MINUTES = 20
+
+
+def stable_random(*parts: object) -> float:
+    """A repeatable 0.0-1.0 drawn from the given parts.
+
+    Repeatable matters more than random here: the same entity on the same day
+    must reach the same answer every tick, or a light 60% likely to be on
+    would flicker every few minutes instead of simply being on.
+    """
+    seed = "|".join(str(part) for part in parts).encode()
+    return int.from_bytes(hashlib.sha256(seed).digest()[:8], "big") / 2**64
+
+
+def desired_on(
+    entity_id: str,
+    week: list[list[float] | None],
+    when: dt.datetime,
+    jitter_minutes: int = JITTER_MINUTES,
+) -> bool | None:
+    """Return whether this entity should be on at `when`, or None if unlearned.
+
+    The stored value is a probability, not a schedule: 1.0 is always on, 0.0
+    never, and 0.07 — a hall light that gets a couple of minutes of motion in
+    a half hour — comes on in roughly one such half hour in fourteen. Drawing
+    per slot rather than thresholding is what keeps the pattern from repeating
+    identically every week.
+    """
+    drift = (stable_random(entity_id, when.date()) * 2 - 1) * jitter_minutes
+    shifted = when - dt.timedelta(minutes=drift)
+
+    if (day := week[shifted.weekday()]) is None:
+        return None
+
+    slot = (shifted.hour * 60 + shifted.minute) // SLOT_MINUTES
+    probability = day[slot]
+    if probability <= 0:
+        return False
+    if probability >= 1:
+        return True
+    return stable_random(entity_id, shifted.date(), slot) < probability
 
 
 def collapse_groups(

@@ -14,12 +14,16 @@
     "step": {
       "init": {
         "title": "Ghost Mode options",
-        "description": "Ghost Mode finds its own entities. Use this only to drop ones it should ignore — duplicates of the same hardware, or device settings that are permanently on and that nobody outside can see.",
+        "description": "Ghost Mode finds its own entities. Replay runs when the switch is on and — if you pick one — the alarm says away.",
         "data": {
+          "alarm": "Alarm that means the house is empty",
+          "drive_domains": "Replay may switch these",
           "exclude": "Never learn or replay these",
-          "paste": "Paste entity IDs to add"
+          "paste": "Paste entity IDs to exclude"
         },
         "data_description": {
+          "alarm": "Replay only runs while this is armed_away or armed_vacation, and stops the moment it is disarmed. Leave empty to rely on the switch alone.",
+          "drive_domains": "Only these are actually switched. Covers really move and media players really power on, so they are off by default.",
           "paste": "One per line or comma separated. They are added to the list above, so you do not have to click each one."
         }
       }

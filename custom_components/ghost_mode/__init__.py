@@ -12,6 +12,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .learner import STORAGE_KEY, STORAGE_VERSION, async_setup_learner
+from .replay import async_setup_replay
 
 PLATFORMS = ["sensor", "switch"]
 
@@ -36,6 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.services.async_register(DOMAIN, SERVICE_LEARN_NOW, _learn_now)
     hass.services.async_register(DOMAIN, SERVICE_FORGET, _forget)
 
+    hass.data[DOMAIN]["replay"] = await async_setup_replay(hass, entry, learner)
+
     # Changing the exclusion list reloads the entry: OptionsFlowWithReload
     # handles that, so there is deliberately no update listener here.
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -50,6 +53,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_remove(DOMAIN, SERVICE_FORGET)
         if (unsub := hass.data[DOMAIN].pop("unsub_learn", None)) is not None:
             unsub()
+        for unsub in hass.data[DOMAIN].pop("unsub_replay", []):
+            unsub()
+        # Never leave the house mid-performance because of a reload.
+        if (replay := hass.data[DOMAIN].pop("replay", None)) is not None:
+            await replay.async_stand_down()
         hass.data[DOMAIN].pop("learner", None)
     return unloaded
 
