@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.7.0...v0.8.0) (2026-07-25)
+
+
+### Features
+
+* let exclusions be pasted instead of clicked one at a time ([77cfb41](https://github.com/MarcelHoell/ha-ghost-mode/commit/77cfb4183c0bcfd3fa82cbc9c98371c756625996))
+
 ## [0.7.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.6.0...v0.7.0) (2026-07-25)
 
 
