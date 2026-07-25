@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.5.0...v0.5.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* apply exclusions and group collapsing without waiting a day ([5c2a577](https://github.com/MarcelHoell/ha-ghost-mode/commit/5c2a57799fd07a35f52ff91e82cb8519dcde4bd6))
+
 ## [0.5.0](https://github.com/MarcelHoell/ha-ghost-mode/compare/v0.4.0...v0.5.0) (2026-07-25)
 
 
