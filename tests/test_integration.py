@@ -114,14 +114,12 @@ async def test_options_flow_merges_the_paste_box_into_the_picker(
     )
     await hass.async_block_till_done()
 
-    assert result["data"] == {
-        CONF_EXCLUDE: [
-            "light.already_picked",
-            "light.pasted_one",
-            "light.pasted_three",
-            "light.pasted_two",
-        ]
-    }
+    assert result["data"][CONF_EXCLUDE] == [
+        "light.already_picked",
+        "light.pasted_one",
+        "light.pasted_three",
+        "light.pasted_two",
+    ]
     assert CONF_PASTE not in result["data"], "the blob itself is never stored"
 
 
@@ -257,7 +255,12 @@ async def test_a_newly_included_entity_is_backfilled_not_left_behind(
 
 
 async def _arm(hass: HomeAssistant, entry: MockConfigEntry, alarm_state: str):
-    """Point replay at an alarm and set it, returning the coordinator."""
+    """Point replay at an alarm and set it, returning the coordinator.
+
+    The reload matters: the alarm listener is registered at setup, so options
+    have to be in place first. In real use `OptionsFlowWithReload` does this.
+    """
+    hass.states.async_set("alarm_control_panel.house", alarm_state)
     hass.config_entries.async_update_entry(
         entry,
         options={
@@ -265,8 +268,7 @@ async def _arm(hass: HomeAssistant, entry: MockConfigEntry, alarm_state: str):
             CONF_DRIVE: ["light", "cover"],
         },
     )
-    await hass.async_block_till_done()
-    hass.states.async_set("alarm_control_panel.house", alarm_state)
+    await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     return hass.data[DOMAIN]["replay"]
 

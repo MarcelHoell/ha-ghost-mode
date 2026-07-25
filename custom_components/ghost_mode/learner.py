@@ -82,8 +82,12 @@ class Learner:
         if today in self.replayed_days:
             return
         self.replayed_days.append(today)
-        # Keep only what the backfill window could still reach.
-        cutoff = (day - dt.timedelta(days=MAX_BACKFILL_DAYS + 1)).isoformat()
+        # Keep only what the backfill window could still reach. Measured from
+        # now, not from the day being recorded, or an old date would set its
+        # own cutoff and survive forever.
+        cutoff = (
+            dt_util.now().date() - dt.timedelta(days=MAX_BACKFILL_DAYS + 1)
+        ).isoformat()
         self._data["replayed"] = sorted(d for d in self.replayed_days if d >= cutoff)
         self.hass.async_create_task(self._store.async_save(self._data))
 
