@@ -36,7 +36,7 @@ It adds four entities:
 | Entity | What it is for |
 | --- | --- |
 | `switch.ghost_mode` | Allow replay. On its own it does nothing until the alarm agrees. |
-| `switch.ghost_mode_force` | **Replay now**, whatever the alarm says. |
+| `switch.ghost_mode_force_replay` | **Replay now**, whatever the alarm says. |
 | `binary_sensor.ghost_mode_replaying` | Whether it is performing right now, and why not if it isn't. |
 | `sensor.ghost_mode_learned_rhythm` | What it has learned. |
 
@@ -57,7 +57,7 @@ Until it is in HACS, add it as a custom repository:
 There is nothing to fill in. It finds your lights, switches, covers and media
 players by itself and starts learning tonight.
 
-Give it a day or two to learn something, then flip **`switch.ghost_mode_force`**
+Give it a day or two to learn something, then flip **`switch.ghost_mode_force_replay`**
 to watch it perform on demand — no alarm, no waiting for you to leave.
 
 ## Configuration
@@ -108,7 +108,7 @@ Ghost Mode can't tell them from a real lamp.
 Replay runs while **both** are true: `switch.ghost_mode` is on, and the alarm
 says away. Learning happens either way, regardless of either switch.
 
-**Or force it.** `switch.ghost_mode_force` overrides everything — alarm, master
+**Or force it.** `switch.ghost_mode_force_replay` overrides everything — alarm, master
 switch, the lot — and replays until you switch it back off. Use it to watch
 what replay actually does before trusting it, or when you are away without
 having armed anything. It is the manual override, so it wins on purpose.
@@ -137,7 +137,7 @@ title: Ghost Mode
 entities:
   - entity: switch.ghost_mode
     name: Enabled
-  - entity: switch.ghost_mode_force
+  - entity: switch.ghost_mode_force_replay
     name: Force replay now
   - entity: binary_sensor.ghost_mode_replaying
     name: Performing right now
@@ -260,7 +260,7 @@ re-adding really does start over.
 **Replay isn't doing anything.** Look at `binary_sensor.ghost_mode_replaying`.
 Its **`waiting_for`** attribute says why in plain words — the switch is off,
 the alarm is disarmed, or the alarm entity is unavailable. To rule the alarm
-out entirely, switch on `switch.ghost_mode_force`.
+out entirely, switch on `switch.ghost_mode_force_replay`.
 
 **It's performing, but nothing visible happens.** Check the card: if today's
 row is mostly `·`, there is genuinely nothing to reproduce at this hour. Replay

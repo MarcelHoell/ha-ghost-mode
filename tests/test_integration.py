@@ -407,7 +407,7 @@ async def test_force_switch_overrides_the_alarm(
     assert replay.is_away() is False
 
     await hass.services.async_call(
-        "switch", "turn_on", {"entity_id": "switch.ghost_mode_force"}, blocking=True
+        "switch", "turn_on", {"entity_id": "switch.ghost_mode_force_replay"}, blocking=True
     )
     await hass.async_block_till_done()
 
@@ -416,7 +416,7 @@ async def test_force_switch_overrides_the_alarm(
     assert hass.states.get("binary_sensor.ghost_mode_replaying").state == "on"
 
     await hass.services.async_call(
-        "switch", "turn_off", {"entity_id": "switch.ghost_mode_force"}, blocking=True
+        "switch", "turn_off", {"entity_id": "switch.ghost_mode_force_replay"}, blocking=True
     )
     await hass.async_block_till_done()
     assert replay.is_away() is False, "and stop the moment it is switched back"
